@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "portless run --name qwerty -- pnpm --filter @qwerty/web dev",
     "typecheck": "pnpm --filter @qwerty/web typecheck",
-    "build": "pnpm --filter @qwerty/web build"
+    "build": "pnpm --filter @qwerty/web build",
+    "lint": "pnpm --filter @qwerty/web lint"
   }
 }
