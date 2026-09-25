@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "@fontsource-variable/manrope";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://qwapp.lat"),
-  title: "Qwerty",
-  description: "Estamos preparando el sitio de Qwerty.",
+  title: "Qwerty · Tus pedidos, en orden",
+  description:
+    "Qwerty es un concepto en desarrollo para ordenar ventas directas, cocina, cobros y delivery.",
+  alternates: {
+    canonical: "/",
+  },
   robots: {
     index: false,
     follow: false,
