@@ -31,7 +31,13 @@ Replace the temporary Qwerty homepage with a responsive, semantic first landing 
 - Status: done
 - Outcome: three dispersed-work cards, then four flow cards and separate payment strip linked by order #149; adjacent sections, anchored real navigation, no claim of implemented functionality.
 - Verification: rendered HTML contracts, 390px and desktop screenshots, no horizontal overflow, accessible heading order/contrast check, trusted HTTPS, noindex/canonical; note any failed or skipped checks. Commit this cohesive section with its evidence. PR only after separate repository policy/issue/check review and user authorization.
-- Commit: pending.
+- Commit: `a7064539e4865cc137ee9ffbf96dfba6adeab239` (`feat(web): connect landing problem to order flow`).
+
+### LC-4 — Restore native review availability before delivery
+- Status: pending (blocked: package-local review binary missing).
+- Outcome: after explicit authorization to repair the package-local installation, use the native review facade for the committed candidate and report its actual outcome; no push, PR or merge is implied.
+- Verification: `gentle_review` inspect must return a valid preflight; if unavailable, keep review blocked and use the independent verifier evidence above without inventing receipt authority.
+- Commit: not applicable while blocked on external review tooling.
 
 ## Evidence
 - 2026-09-25: `main` was clean at `2f3696d` before branching. Read Next 16 installed guides for pages/layouts, CSS, fonts and metadata. Scout inspected existing PNGs; accepted baseline is cream/ink/lime, Manrope, compact statuses and separate transfer/courier settlement. OpenPencil responded app disconnected, so use exported visuals and report source-inspection limitation. Biome 2.5.14 registry metadata and dry-run tarballs show no scripts, no regular deps and expected native optional binaries; pnpm policy remains enforced. Chromium headless binary exists locally for screenshot verification.
@@ -41,5 +47,7 @@ Replace the temporary Qwerty homepage with a responsive, semantic first landing 
 
 - 2026-09-25: LC-2 committed as `d25a2077d8a5fe8892bd87f416e5d9d181162593`. LC-3 added only `apps/web/app/page.tsx` (136 lines): approved three problem cards, four order-flow cards, a separate pending-transfer strip for #149, two real links to one `#como-funciona` target; no new package, live CTA or unapproved four-card problem revision. Writer passed served-HTML GREEN, lint, typecheck, build and diff check. Independent verifier repeated lint/types/build and inspected native 390px mobile and desktop screenshots including problem and flow crops; all labels/states legible, no visible occlusion. DOM overflow measured absent at 390×844 and 1440×900. One neutral-chip contrast pair was 4.44:1 and was corrected to 5.21:1; all audited normal-text pairs now meet 4.5:1. Parent restored `next-env.d.ts` after Next build regenerated it. Final temporary Portless production route returned trusted HTTPS HTTP/2 200 with es-AR, noindex/nofollow, canonical, 3+4 cards, two links/one anchor and distinct payment state. Static link/target validated; native browser click itself not exercised because Firefox headless fragment capture stayed at top. OpenPencil source inspection unavailable; PNG refs only. Existing separate live/hung dev process on port3000 was not stopped.
 
+- 2026-09-25: LC-3 committed as `a7064539e4865cc137ee9ffbf96dfba6adeab239`. `gentle-ai review mode status` says global RDD on, but `gentle_review` inspect returned `native-status-package-binary-missing`, with `lineage_created:false` and no mutation. Native review did not run and no approval/receipt exists. The facade suggested `node scripts/install-gentle-ai.mjs` from the installed gentle-pi package; no install script was run or permission assumed. The separate independent verifier passed source checks and runtime checks, but cannot substitute for native authority. Package-local binary is absent; global `gentle-ai` on PATH does not authorize bypassing the facade.
+
 ## Next step
-Commit LC-3 work unit. Prepare PR only after a separate user decision and repository-policy checks; do not push, open PR or merge by implication.
+Ask whether to repair the package-local native review integration; keep LC-4 blocked until an explicit decision. Separately, request user authorization before push or PR and follow repository policy. Do not merge by implication.
