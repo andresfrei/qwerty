@@ -3,9 +3,12 @@
   "private": true,
   "packageManager": "pnpm@11.20.0",
   "scripts": {
-    "dev": "portless run --name qwerty -- pnpm --filter @qwerty/web dev",
+    "dev": "QWERTY_SITE_URL=https://qwerty.localhost portless qwerty pnpm --filter @qwerty/web dev",
     "typecheck": "pnpm --filter @qwerty/web typecheck",
     "build": "pnpm --filter @qwerty/web build",
     "lint": "pnpm --filter @qwerty/web lint"
+  },
+  "devDependencies": {
+    "supabase": "2.118.0"
   }
 }
