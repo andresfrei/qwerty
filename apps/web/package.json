@@ -2,9 +2,9 @@
   "name": "@qwerty/web",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --env-file-if-exists=../../.env.local node_modules/next/dist/bin/next dev",
     "typecheck": "tsc --noEmit",
-    "build": "next build",
+    "build": "node --env-file-if-exists=../../.env.local node_modules/next/dist/bin/next build",
     "lint": "biome lint app"
   },
   "dependencies": {
