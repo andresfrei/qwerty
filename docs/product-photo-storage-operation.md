@@ -1,10 +1,10 @@
 # Trusted product photo storage operation
 
-This document describes the source-preparation unit for trusted product photo delivery. It targets the **one existing Supabase database used through the MVP**. It has not been applied, and it does not claim deployed Auth, CAS, RLS, or Storage behavior.
+The operation was applied once to the **one existing Supabase database used through the MVP**, project `jxebudqzcmxgdsegrrqw`, as native history `20261015033155` / `trusted_product_photo_storage`. It provisions the bucket and RPCs; the HTTP endpoint and live upload/positive ownership-CAS workflow are not yet verified.
 
 ## Operation source
 
-`supabase/operations/trusted_product_photo_storage.sql` is an operation source, not an invented migration. The eventual native deployment/version mapping is selected later. The operation intentionally does not replay the existing `catalog_items` photo-column `ALTER`, alter the original photo migration, create or replace a function, drop an object, or change provider schema/history bookkeeping.
+`supabase/operations/trusted_product_photo_storage.sql` is an operation source, not an invented migration filename. Native history `20261015033155` maps to the exact source from commit `5d509be3cf5c24a49979391b956ae3a5f532ad87`, SHA-256 `acfbeb9f10f7dae914ef68df3745a0e0fe70c2989f56ee5b9524d787b4e9ecce`. Do not replay this already-applied operation. The operation intentionally does not replay the existing `catalog_items` photo-column `ALTER`, alter the original photo migration, create or replace a function, drop an object, or change provider schema/history bookkeeping.
 
 The source uses one PostgreSQL `DO` statement for the function DDL, function privilege changes, and new bucket insert. This prevents a committed intermediate public-execute state between those operation steps. It does **not** claim that provider schema/history bookkeeping and this SQL statement share one transaction.
 
@@ -63,4 +63,13 @@ The existing schema sources establish the following relevant boundaries:
 
 ## Verification boundary
 
-No functional database runner, SQL/psql execution, Docker, fixture, or remote apply was authorized for this source-only unit. There is therefore no meaningful runnable SQL RED/GREEN result and no positive functional proof for ownership, collision handling, triggers, CAS, RLS, or Storage behavior. Those checks remain deployment and integration work. Structural readback and `git diff --check` are the applicable source checks.
+The initial writer/independent review was source-only: no functional SQL RED/GREEN was claimed. The parent subsequently applied the exact one-DO source once through native MCP (`success: true`) after fresh target, collision, grant, lifecycle-default and reachable-trigger inspection. Post-apply observations:
+
+- Exactly one native history entry `20261015033155`; public `product-photos`, 409600 bytes, only `image/webp`.
+- Both RPCs are invoker functions owned by `postgres` with empty search paths. Effective `EXECUTE` is false for `anon`/`authenticated`, true for `service_role`; clients cannot inherit `service_role`.
+- Deployed `prosrc` MD5 values match the dollar-quoted bodies extracted from committed source: read `0587ae71455092afb3a018057d8f884c`, commit `6fbd8c6637d775efb7daf6db0a29e993`.
+- Photo-column definitions remain intact. Storage objects retain RLS with zero policies: no direct client mutation policy was installed.
+- In one `BEGIN READ ONLY; SET LOCAL ROLE service_role; ... ROLLBACK` batch, empty-owner read and seven malformed/version/path rejection controls returned their expected results. These controls deliberately avoid fixtures and successful writes; they do not exercise a positive CAS or live HTTP Storage request.
+- Security advisor reported only an INFO on the existing `public.business_memberships` RLS-without-policy state; see [advisor explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). No unrelated policy change was made.
+
+These are parent-captured runtime/metadata observations, not independent live RPCs. Independent verifier `mv8zkwlc-c-7zqd` confirmed working/HEAD/`5d509be` source equality and source/hash/documented-capture consistency with read-only Python/Git checks. It made no live database call and did not independently verify the parent's runtime captures; no stronger provenance is inferred. Positive owner/non-owner/stale/concurrent CAS, public delivery and real uploads still need the wired backend and explicitly bounded functional checks. No Auth, business, catalog or Storage-object fixtures were created; no schema/history joint-atomicity, cleanup or whole historical-data preservation guarantee is inferred.
