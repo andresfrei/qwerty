@@ -71,25 +71,6 @@ function assertStableError(error, code) {
   assert.equal(error.message.includes("raw database detail"), false);
 }
 
-const KNOWN_BASELINE_DIAGNOSTICS = [
-  {
-    file: "app/lib/product-photo-normalizer.ts",
-    start: 5501,
-    length: 5,
-    code: 2503,
-    category: 1,
-    message: "Cannot find namespace 'sharp'.",
-  },
-  {
-    file: "tests/product-photo-normalizer.test.ts",
-    start: 166,
-    length: 40,
-    code: 5097,
-    category: 1,
-    message: "An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.",
-  },
-];
-
 function installedSdkAssignabilityDiagnostics({ injectUnexpectedBaseline = false } = {}) {
   const webRoot = join(process.cwd(), "apps/web");
   const configPath = join(webRoot, "tsconfig.json");
@@ -109,8 +90,10 @@ acceptsPhotoClient(installedClient);
   if (injectUnexpectedBaseline) {
     sources.set(injectedPath, `
 import sharp from "sharp";
+import { PhotoNormalizationError as InjectedPhotoError } from "./product-photo-normalizer.ts";
 let injectedMetadata: sharp.Metadata;
 void injectedMetadata;
+void InjectedPhotoError;
 `);
   }
   const baseHost = ts.createCompilerHost(parsed.options, true);
@@ -141,11 +124,7 @@ void injectedMetadata;
     category: diagnostic.category,
     message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\\n"),
   }));
-  const isKnownBaseline = (diagnostic) => KNOWN_BASELINE_DIAGNOSTICS.some((known) =>
-    JSON.stringify(known) === JSON.stringify(diagnostic));
-  const baselineDiagnostics = normalizedDiagnostics.filter(isKnownBaseline);
-  const unexpectedDiagnostics = normalizedDiagnostics.filter((diagnostic) => !isKnownBaseline(diagnostic));
-  assert.deepEqual(baselineDiagnostics, KNOWN_BASELINE_DIAGNOSTICS, "only the exact committed baseline diagnostics may be filtered");
+  const unexpectedDiagnostics = normalizedDiagnostics;
   return {
     virtualDiagnostics: unexpectedDiagnostics.filter(({ file }) => file === "app/lib/product-photo-supabase.assignability.virtual.ts"),
     injectedDiagnostics: unexpectedDiagnostics.filter(({ file }) => file === "app/lib/product-photo-supabase.baseline-regression.virtual.ts"),
@@ -153,19 +132,23 @@ void injectedMetadata;
   };
 }
 
-test("installed SupabaseClient is assignable to the adapter port; exact TS2503/TS5097 baseline remains disclosed", () => {
+test("installed SupabaseClient is assignable and the project has zero compiler diagnostics", async (t) => {
   const result = installedSdkAssignabilityDiagnostics();
   assert.deepEqual(result.virtualDiagnostics, []);
+  await t.test("the canonical normalizer has no compiler diagnostics", () => {
+    assert.deepEqual(result.unexpectedDiagnostics.filter(({ file }) => file === "app/lib/product-photo-normalizer.ts"), []);
+  });
+  await t.test("the native Node normalizer test has no compiler diagnostics", () => {
+    assert.deepEqual(result.unexpectedDiagnostics.filter(({ file }) => file === "tests/product-photo-normalizer.test.ts"), []);
+  });
   assert.deepEqual(result.unexpectedDiagnostics, []);
 });
 
-test("does not suppress a new baseline-code diagnostic at a different virtual location", () => {
+test("does not suppress deliberately injected TS2503 or TS5097 diagnostics", () => {
   const result = installedSdkAssignabilityDiagnostics({ injectUnexpectedBaseline: true });
-  assert.ok(result.injectedDiagnostics.length >= 1);
-  const injectedDiagnostic = result.injectedDiagnostics.find(({ code }) => code === 2503 || code === 5097);
-  assert.ok(injectedDiagnostic, JSON.stringify(result.injectedDiagnostics));
-  assert.notEqual(injectedDiagnostic.file, "app/lib/product-photo-normalizer.ts");
-  assert.notEqual(injectedDiagnostic.start, 5501);
+  const codes = new Set(result.injectedDiagnostics.map(({ code }) => code));
+  assert.ok(codes.has(2503), JSON.stringify(result.injectedDiagnostics));
+  assert.ok(codes.has(5097), JSON.stringify(result.injectedDiagnostics));
   assert.equal(result.unexpectedDiagnostics.length, result.injectedDiagnostics.length);
 });
 

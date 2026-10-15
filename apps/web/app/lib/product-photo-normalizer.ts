@@ -200,7 +200,7 @@ export async function normalizeProductPhoto(
       failOn: "error",
       limitInputPixels: false,
     }).timeout({ seconds: MAX_NATIVE_TIMEOUT_SECONDS });
-    let metadata: sharp.Metadata;
+    let metadata: Awaited<ReturnType<typeof sourceImage.metadata>>;
     try {
       metadata = await sourceImage.metadata();
     } catch (error) {

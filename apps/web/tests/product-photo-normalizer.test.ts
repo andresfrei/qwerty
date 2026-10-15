@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 import sharp from "sharp";
-import {
-  normalizeProductPhoto,
-  PhotoNormalizationError,
-} from "../app/lib/product-photo-normalizer.ts";
+
+// Native Node needs the .ts path; the type query uses the application resolver.
+const require = createRequire(import.meta.url);
+const { normalizeProductPhoto, PhotoNormalizationError } = require(
+  "../app/lib/product-photo-normalizer.ts",
+) as typeof import("../app/lib/product-photo-normalizer");
 
 const MAX_OUTPUT_BYTES = 409_600;
 
@@ -39,7 +42,7 @@ async function rawImage(
 function expectPhotoError(
   error: unknown,
   code: string,
-): asserts error is PhotoNormalizationError {
+): asserts error is InstanceType<typeof PhotoNormalizationError> {
   assert.ok(error instanceof PhotoNormalizationError);
   assert.equal(error.code, code);
   assert.equal(error.message.includes("Input buffer"), false);
