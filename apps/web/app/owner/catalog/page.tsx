@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { accessRedirect } from "@/app/auth/access-validation";
 import { formatMoney } from "@/app/lib/storefront";
+import type { Option, OptionGroup } from "@/app/lib/catalog-selection";
 import { createClient } from "@/app/lib/supabase/server";
+import { describeGroupBehavior } from "./catalog-preview";
 
 type Business = { id: string; name: string };
 type Storefront = { slug: string; display_name: string; is_published: boolean };
@@ -43,9 +45,12 @@ export default async function OwnerCatalogPage() {
   let storefront: Storefront | null = null;
   let categories: Category[] = [];
   let items: Item[] = [];
+  let optionGroups: OptionGroup[] = [];
+  let options: Option[] = [];
+  let surchargeMinor = 0;
   let loadError = Boolean(businessError);
   if (business && !loadError) {
-    const [storefrontResult, categoryResult, itemResult] = await Promise.all([
+    const [storefrontResult, categoryResult, itemResult, groupResult, optionResult, settingsResult] = await Promise.all([
       supabase.from("business_storefronts").select("slug,display_name,is_published")
         .eq("business_id", business.id).maybeSingle(),
       supabase.from("catalog_categories").select("id,name,sort_order")
@@ -53,13 +58,25 @@ export default async function OwnerCatalogPage() {
       supabase.from("catalog_items")
         .select("id,category_id,name,description,price_minor,currency,is_available,sort_order")
         .eq("business_id", business.id).order("sort_order").order("id"),
+      supabase.from("catalog_option_groups")
+        .select("id,item_id,name,selection_mode,min_select,max_select,sort_order")
+        .eq("business_id", business.id).order("sort_order").order("id"),
+      supabase.from("catalog_options")
+        .select("id,group_id,name,price_delta_minor,is_available,sort_order")
+        .eq("business_id", business.id).order("sort_order").order("id"),
+      supabase.from("business_catalog_settings").select("two_flavor_surcharge_minor")
+        .eq("business_id", business.id).maybeSingle(),
     ]);
-    if (storefrontResult.error || categoryResult.error || itemResult.error) {
+    if (storefrontResult.error || categoryResult.error || itemResult.error
+      || groupResult.error || optionResult.error || settingsResult.error) {
       loadError = true;
     } else {
       storefront = (storefrontResult.data as Storefront | null) ?? null;
       categories = (categoryResult.data ?? []) as Category[];
       items = (itemResult.data ?? []) as Item[];
+      optionGroups = (groupResult.data ?? []) as OptionGroup[];
+      options = (optionResult.data ?? []) as Option[];
+      surchargeMinor = (settingsResult.data as { two_flavor_surcharge_minor: number } | null)?.two_flavor_surcharge_minor ?? 0;
     }
   }
 
@@ -112,6 +129,9 @@ export default async function OwnerCatalogPage() {
               ) : (
                 <p className="mt-4 text-sm text-[var(--muted)]">Este negocio todavía no tiene una vidriera.</p>
               )}
+              <p className="mt-3 text-xs text-[var(--muted)]">
+                Recargo por dos gustos: {formatMoney(surchargeMinor, items[0]?.currency ?? "ARS")}.
+              </p>
             </div>
 
             {categories.length === 0 ? (
@@ -144,6 +164,31 @@ export default async function OwnerCatalogPage() {
                             </div>
                             {item.description ? (
                               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+                            ) : null}
+                            {optionGroups.filter((group) => group.item_id === item.id).length > 0 ? (
+                              <ul className="mt-3 grid gap-2 border-t border-[var(--line)] pt-3">
+                                {optionGroups.filter((group) => group.item_id === item.id).map((group) => {
+                                  const behavior = describeGroupBehavior(item, group, options, surchargeMinor);
+                                  const mode = group.selection_mode === "distinct" ? "opciones distintas" : "unidades";
+                                  return (
+                                    <li key={group.id}>
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <strong className="text-sm">{group.name}</strong>
+                                        <span className="font-mono text-xs text-[var(--olive)]">
+                                          {mode} {group.min_select}-{group.max_select}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                                        {!behavior.ok
+                                          ? "Todavía no se puede armar con las opciones disponibles."
+                                          : behavior.description
+                                            ? `Cliente: ${behavior.description} · ${formatMoney(behavior.unitPriceMinor ?? item.price_minor, item.currency)}`
+                                            : "Sin selección obligatoria."}
+                                      </p>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
                             ) : null}
                           </li>
                         ))}
