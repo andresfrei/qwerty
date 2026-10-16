@@ -54,6 +54,8 @@ export function createSupabaseCatalogGateway(supabase: SupabaseClient): CatalogG
 
     categoryOwnedBy: (businessId, categoryId) => owned("catalog_categories", businessId, categoryId),
     itemOwnedBy: (businessId, itemId) => owned("catalog_items", businessId, itemId),
+    groupOwnedBy: (businessId, groupId) => owned("catalog_option_groups", businessId, groupId),
+    optionOwnedBy: (businessId, optionId) => owned("catalog_options", businessId, optionId),
 
     async write(write: CatalogWrite) {
       if (write.kind === "insert_category") {
@@ -91,6 +93,71 @@ export function createSupabaseCatalogGateway(supabase: SupabaseClient): CatalogG
         await requireAffected(
           await supabase.from("catalog_items").update(itemPayload(write))
             .eq("business_id", write.businessId).eq("id", write.itemId).select("id"),
+          "not_found",
+        );
+        return;
+      }
+
+      if (write.kind === "insert_option_group") {
+        const { error } = await supabase.from("catalog_option_groups").insert({
+          business_id: write.businessId,
+          item_id: write.itemId,
+          name: write.name,
+          selection_mode: write.selectionMode,
+          min_select: write.minSelect,
+          max_select: write.maxSelect,
+          sort_order: write.sortOrder,
+        });
+        if (error) throw new CatalogWriteError("unavailable");
+        return;
+      }
+
+      if (write.kind === "update_option_group") {
+        await requireAffected(
+          await supabase.from("catalog_option_groups").update({
+            name: write.name,
+            selection_mode: write.selectionMode,
+            min_select: write.minSelect,
+            max_select: write.maxSelect,
+            sort_order: write.sortOrder,
+          }).eq("business_id", write.businessId).eq("id", write.groupId).select("id"),
+          "not_found",
+        );
+        return;
+      }
+
+      if (write.kind === "insert_option") {
+        const { error } = await supabase.from("catalog_options").insert({
+          business_id: write.businessId,
+          group_id: write.groupId,
+          name: write.name,
+          price_delta_minor: write.priceDeltaMinor,
+          is_available: write.isAvailable,
+          sort_order: write.sortOrder,
+        });
+        if (error) throw new CatalogWriteError("unavailable");
+        return;
+      }
+
+      if (write.kind === "update_option") {
+        await requireAffected(
+          await supabase.from("catalog_options").update({
+            name: write.name,
+            price_delta_minor: write.priceDeltaMinor,
+            is_available: write.isAvailable,
+            sort_order: write.sortOrder,
+          }).eq("business_id", write.businessId).eq("id", write.optionId).select("id"),
+          "not_found",
+        );
+        return;
+      }
+
+      if (write.kind === "upsert_settings") {
+        await requireAffected(
+          await supabase.from("business_catalog_settings").upsert({
+            business_id: write.businessId,
+            two_flavor_surcharge_minor: write.twoFlavorSurchargeMinor,
+          }, { onConflict: "business_id" }).select("business_id"),
           "not_found",
         );
         return;

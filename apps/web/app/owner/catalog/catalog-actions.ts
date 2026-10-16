@@ -1,5 +1,7 @@
 // @ts-expect-error Native Node tests require an explicit TypeScript extension.
 import { getTrustedSiteOrigin, isTrustedCallbackRequest } from "../../lib/supabase/confirm.ts";
+// The pure selection module supplies the mode type used by option groups.
+import type { SelectionMode } from "../../lib/catalog-selection.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CURRENCY = /^[A-Z]{3}$/;
@@ -7,7 +9,9 @@ const CURRENCY = /^[A-Z]{3}$/;
 export type CatalogErrorCode =
   | "invalid_request" | "invalid_action" | "invalid_name" | "invalid_price" | "invalid_currency"
   | "invalid_category" | "invalid_availability" | "invalid_publication" | "invalid_sort_order"
-  | "invalid_id" | "request_rejected" | "unauthorized" | "not_found" | "storefront_missing"
+  | "invalid_id" | "invalid_selection_mode" | "invalid_min_select" | "invalid_max_select"
+  | "invalid_price_delta" | "invalid_surcharge"
+  | "request_rejected" | "unauthorized" | "not_found" | "storefront_missing"
   | "method_not_allowed" | "unavailable";
 
 export type ItemFields = {
@@ -20,12 +24,32 @@ export type ItemFields = {
   sortOrder: number;
 };
 
+export type OptionGroupFields = {
+  name: string;
+  selectionMode: SelectionMode;
+  minSelect: number;
+  maxSelect: number;
+  sortOrder: number;
+};
+
+export type OptionFields = {
+  name: string;
+  priceDeltaMinor: number;
+  isAvailable: boolean;
+  sortOrder: number;
+};
+
 export type CatalogWrite =
   | { kind: "insert_category"; businessId: string; name: string; sortOrder: number }
   | { kind: "update_category"; businessId: string; categoryId: string; name?: string; sortOrder?: number }
   | ({ kind: "insert_item"; businessId: string } & ItemFields)
   | ({ kind: "update_item"; businessId: string; itemId: string } & ItemFields)
-  | { kind: "update_storefront"; businessId: string; isPublished: boolean };
+  | { kind: "update_storefront"; businessId: string; isPublished: boolean }
+  | ({ kind: "insert_option_group"; businessId: string; itemId: string } & OptionGroupFields)
+  | ({ kind: "update_option_group"; businessId: string; groupId: string } & OptionGroupFields)
+  | ({ kind: "insert_option"; businessId: string; groupId: string } & OptionFields)
+  | ({ kind: "update_option"; businessId: string; optionId: string } & OptionFields)
+  | { kind: "upsert_settings"; businessId: string; twoFlavorSurchargeMinor: number };
 
 /**
  * The session is the only ownership source. A request never carries an owner or
@@ -35,6 +59,10 @@ export interface CatalogGateway {
   ownerBusinessId(): Promise<string | null>;
   categoryOwnedBy(businessId: string, categoryId: string): Promise<boolean>;
   itemOwnedBy(businessId: string, itemId: string): Promise<boolean>;
+  // Optional so the pre-existing category/product gateway stays valid; the option
+  // actions below fail closed when a lookup is absent.
+  groupOwnedBy?(businessId: string, groupId: string): Promise<boolean>;
+  optionOwnedBy?(businessId: string, optionId: string): Promise<boolean>;
   write(write: CatalogWrite): Promise<void>;
 }
 
@@ -54,7 +82,12 @@ export type CatalogAction =
   | { action: "reorder_category"; categoryId: string; sortOrder: number }
   | ({ action: "create_product" } & ItemFields)
   | ({ action: "update_product"; itemId: string } & ItemFields)
-  | { action: "set_published"; isPublished: boolean };
+  | { action: "set_published"; isPublished: boolean }
+  | ({ action: "create_option_group"; itemId: string } & OptionGroupFields)
+  | ({ action: "update_option_group"; groupId: string } & OptionGroupFields)
+  | ({ action: "create_option"; groupId: string } & OptionFields)
+  | ({ action: "update_option"; optionId: string } & OptionFields)
+  | { action: "set_two_flavor_surcharge"; twoFlavorSurchargeMinor: number };
 
 export type CatalogValidation =
   | { ok: true; action: CatalogAction }
@@ -97,6 +130,73 @@ function validateProduct(payload: Record<string, unknown>, withItem: boolean): C
   return { ok: true, action: { action: "update_product", itemId: payload.itemId as string, ...fields } };
 }
 
+function groupFields(action: OptionGroupFields): OptionGroupFields {
+  return {
+    name: action.name,
+    selectionMode: action.selectionMode,
+    minSelect: action.minSelect,
+    maxSelect: action.maxSelect,
+    sortOrder: action.sortOrder,
+  };
+}
+
+function optionFields(action: OptionFields): OptionFields {
+  return {
+    name: action.name,
+    priceDeltaMinor: action.priceDeltaMinor,
+    isAvailable: action.isAvailable,
+    sortOrder: action.sortOrder,
+  };
+}
+
+/** Mirrors the database checks on `catalog_option_groups`: a name, one of the two modes and
+ *  `minSelect <= maxSelect`, all non-negative. */
+function validateOptionGroup(payload: Record<string, unknown>, withGroup: boolean): CatalogValidation {
+  if (!validName(payload.name)) return { ok: false, error: "invalid_name" };
+  if (payload.selectionMode !== "distinct" && payload.selectionMode !== "quantity") {
+    return { ok: false, error: "invalid_selection_mode" };
+  }
+  if (!validInteger(payload.minSelect)) return { ok: false, error: "invalid_min_select" };
+  if (!validInteger(payload.maxSelect) || payload.maxSelect < payload.minSelect) {
+    return { ok: false, error: "invalid_max_select" };
+  }
+  if (!validInteger(payload.sortOrder)) return { ok: false, error: "invalid_sort_order" };
+  if (withGroup && !validId(payload.groupId)) return { ok: false, error: "invalid_id" };
+  if (!withGroup && !validId(payload.itemId)) return { ok: false, error: "invalid_id" };
+
+  const fields: OptionGroupFields = {
+    name: payload.name.trim(),
+    selectionMode: payload.selectionMode,
+    minSelect: payload.minSelect,
+    maxSelect: payload.maxSelect,
+    sortOrder: payload.sortOrder,
+  };
+  if (!withGroup) {
+    return { ok: true, action: { action: "create_option_group", itemId: payload.itemId as string, ...fields } };
+  }
+  return { ok: true, action: { action: "update_option_group", groupId: payload.groupId as string, ...fields } };
+}
+
+function validateOption(payload: Record<string, unknown>, withOption: boolean): CatalogValidation {
+  if (!validName(payload.name)) return { ok: false, error: "invalid_name" };
+  if (!validInteger(payload.priceDeltaMinor)) return { ok: false, error: "invalid_price_delta" };
+  if (typeof payload.isAvailable !== "boolean") return { ok: false, error: "invalid_availability" };
+  if (!validInteger(payload.sortOrder)) return { ok: false, error: "invalid_sort_order" };
+  if (withOption && !validId(payload.optionId)) return { ok: false, error: "invalid_id" };
+  if (!withOption && !validId(payload.groupId)) return { ok: false, error: "invalid_id" };
+
+  const fields: OptionFields = {
+    name: payload.name.trim(),
+    priceDeltaMinor: payload.priceDeltaMinor,
+    isAvailable: payload.isAvailable,
+    sortOrder: payload.sortOrder,
+  };
+  if (!withOption) {
+    return { ok: true, action: { action: "create_option", groupId: payload.groupId as string, ...fields } };
+  }
+  return { ok: true, action: { action: "update_option", optionId: payload.optionId as string, ...fields } };
+}
+
 export function validateCatalogAction(payload: unknown): CatalogValidation {
   if (!isRecord(payload) || typeof payload.action !== "string") {
     return { ok: false, error: "invalid_request" };
@@ -119,6 +219,17 @@ export function validateCatalogAction(payload: unknown): CatalogValidation {
       return validateProduct(payload, false);
     case "update_product":
       return validateProduct(payload, true);
+    case "create_option_group":
+      return validateOptionGroup(payload, false);
+    case "update_option_group":
+      return validateOptionGroup(payload, true);
+    case "create_option":
+      return validateOption(payload, false);
+    case "update_option":
+      return validateOption(payload, true);
+    case "set_two_flavor_surcharge":
+      if (!validInteger(payload.twoFlavorSurchargeMinor)) return { ok: false, error: "invalid_surcharge" };
+      return { ok: true, action: { action: "set_two_flavor_surcharge", twoFlavorSurchargeMinor: payload.twoFlavorSurchargeMinor } };
     case "set_published":
       if (typeof payload.isPublished !== "boolean") return { ok: false, error: "invalid_publication" };
       return { ok: true, action: { action: "set_published", isPublished: payload.isPublished } };
@@ -164,6 +275,20 @@ export async function planCatalogWrite(
       return { write: { kind: "update_item", businessId, itemId: action.itemId, ...productFields(action) } };
     case "set_published":
       return { write: { kind: "update_storefront", businessId, isPublished: action.isPublished } };
+    case "create_option_group":
+      if (!(await gateway.itemOwnedBy(businessId, action.itemId))) return { error: "not_found" };
+      return { write: { kind: "insert_option_group", businessId, itemId: action.itemId, ...groupFields(action) } };
+    case "update_option_group":
+      if (!gateway.groupOwnedBy || !(await gateway.groupOwnedBy(businessId, action.groupId))) return { error: "not_found" };
+      return { write: { kind: "update_option_group", businessId, groupId: action.groupId, ...groupFields(action) } };
+    case "create_option":
+      if (!gateway.groupOwnedBy || !(await gateway.groupOwnedBy(businessId, action.groupId))) return { error: "not_found" };
+      return { write: { kind: "insert_option", businessId, groupId: action.groupId, ...optionFields(action) } };
+    case "update_option":
+      if (!gateway.optionOwnedBy || !(await gateway.optionOwnedBy(businessId, action.optionId))) return { error: "not_found" };
+      return { write: { kind: "update_option", businessId, optionId: action.optionId, ...optionFields(action) } };
+    case "set_two_flavor_surcharge":
+      return { write: { kind: "upsert_settings", businessId, twoFlavorSurchargeMinor: action.twoFlavorSurchargeMinor } };
   }
 }
 
