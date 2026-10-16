@@ -5,6 +5,7 @@ import { formatMoney } from "@/app/lib/storefront";
 import type { Option, OptionGroup } from "@/app/lib/catalog-selection";
 import { createClient } from "@/app/lib/supabase/server";
 import { describeGroupBehavior } from "./catalog-preview";
+import { PhotoEditor } from "./photo-editor-client";
 
 type Business = { id: string; name: string };
 type Storefront = { slug: string; display_name: string; is_published: boolean };
@@ -18,6 +19,8 @@ type Item = {
   currency: string;
   is_available: boolean;
   sort_order: number;
+  photo_path: string | null;
+  photo_version: number | string;
 };
 
 export const dynamic = "force-dynamic";
@@ -56,7 +59,7 @@ export default async function OwnerCatalogPage() {
       supabase.from("catalog_categories").select("id,name,sort_order")
         .eq("business_id", business.id).order("sort_order").order("id"),
       supabase.from("catalog_items")
-        .select("id,category_id,name,description,price_minor,currency,is_available,sort_order")
+        .select("id,category_id,name,description,price_minor,currency,is_available,sort_order,photo_path,photo_version")
         .eq("business_id", business.id).order("sort_order").order("id"),
       supabase.from("catalog_option_groups")
         .select("id,item_id,name,selection_mode,min_select,max_select,sort_order")
@@ -165,6 +168,12 @@ export default async function OwnerCatalogPage() {
                             {item.description ? (
                               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
                             ) : null}
+                            <PhotoEditor
+                              itemId={item.id}
+                              itemName={item.name}
+                              photoPath={item.photo_path}
+                              photoVersion={String(item.photo_version)}
+                            />
                             {optionGroups.filter((group) => group.item_id === item.id).length > 0 ? (
                               <ul className="mt-3 grid gap-2 border-t border-[var(--line)] pt-3">
                                 {optionGroups.filter((group) => group.item_id === item.id).map((group) => {
