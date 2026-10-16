@@ -13,6 +13,7 @@ import {
   type CartState,
 } from "@/app/lib/storefront";
 import type { StorefrontCategory } from "@/app/lib/storefront-reader";
+import type { StorefrontPhoto } from "@/app/lib/storefront-photo";
 
 const storageKey = (businessId: string) => `qwerty:cart:v1:${businessId}`;
 const categoryAnchorId = (categoryId: string) => `category-${categoryId}`;
@@ -40,6 +41,23 @@ function ProductMediaFallback() {
       <span>Foto no disponible</span>
     </div>
   );
+}
+
+function ProductMedia({ name, photo }: { name: string; photo: StorefrontPhoto }) {
+  if (photo.kind === "photo") {
+    return (
+      <img
+        alt={`Foto de ${name}`}
+        className="size-16 shrink-0 rounded-lg bg-[var(--cream)] object-cover sm:size-[4.5rem]"
+        decoding="async"
+        height={72}
+        loading="lazy"
+        src={photo.url}
+        width={72}
+      />
+    );
+  }
+  return <ProductMediaFallback />;
 }
 
 export default function StorefrontClient({ businessId, categories }: { businessId: string; categories: StorefrontCategory[] }) {
@@ -101,7 +119,7 @@ export default function StorefrontClient({ businessId, categories }: { businessI
                     <div className="grid gap-3 lg:grid-cols-2">
                       {categoryItems.map((item) => (
                         <article className="flex min-w-0 items-center gap-3 rounded-xl border border-[var(--line)] bg-white p-2.5 sm:p-3" key={item.id}>
-                          <ProductMediaFallback />
+                          <ProductMedia name={item.name} photo={item.photo} />
                           <div className="min-w-0 flex-1">
                             <h4 className="text-sm font-extrabold tracking-[-0.03em]">{item.name}</h4>
                             {item.description && <p className="mt-1 line-clamp-2 text-xs leading-4 text-[var(--muted)]">{item.description}</p>}
