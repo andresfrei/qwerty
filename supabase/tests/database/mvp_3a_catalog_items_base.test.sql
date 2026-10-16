@@ -17,17 +17,25 @@ SELECT is(
     'currency:text:NO',
     'is_available:boolean:NO',
     'sort_order:integer:NO',
-    'created_at:timestamp with time zone:NO'
+    'created_at:timestamp with time zone:NO',
+    'category_id:uuid:NO',
+    'photo_path:text:YES',
+    'photo_version:bigint:NO'
   ]::text[],
-  'catalog_items has exactly the base columns with their expected types and nullability'
+  'catalog_items has exactly the current columns with their expected types and nullability'
 );
-SELECT ok(
-  NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'catalog_items'
-      AND column_name IN ('category_id', 'photo_path', 'photo_version')
-  ),
-  'catalog_items excludes category and photo columns from later features'
+SELECT is(
+  (SELECT array_agg(column_name::text || ':' || data_type || ':' || is_nullable
+                   ORDER BY ordinal_position)
+   FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'catalog_items'
+     AND column_name IN ('category_id', 'photo_path', 'photo_version')),
+  ARRAY[
+    'category_id:uuid:NO',
+    'photo_path:text:YES',
+    'photo_version:bigint:NO'
+  ]::text[],
+  'catalog_items keeps the category and photo columns added by later features'
 );
 SELECT ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.catalog_items')),
@@ -133,10 +141,19 @@ VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Catalog Owner A Business');
 SELECT set_config('test.catalog_business_a', (SELECT id::text FROM public.businesses WHERE name = 'Catalog Owner A Business'), true);
 INSERT INTO public.business_storefronts (business_id, slug, display_name, is_published)
 VALUES (current_setting('test.catalog_business_a')::uuid, 'catalog-owner-a', 'Catalog Owner A', false);
-INSERT INTO public.catalog_items (business_id, name, description, price_minor, currency, is_available, sort_order)
+INSERT INTO public.catalog_categories (business_id, name, sort_order)
+VALUES (current_setting('test.catalog_business_a')::uuid, 'General', 0);
+SELECT set_config(
+  'test.catalog_category_a',
+  (SELECT id::text FROM public.catalog_categories
+   WHERE business_id = current_setting('test.catalog_business_a')::uuid
+     AND name = 'General'),
+  true
+);
+INSERT INTO public.catalog_items (business_id, category_id, name, description, price_minor, currency, is_available, sort_order)
 VALUES
-  (current_setting('test.catalog_business_a')::uuid, 'Owner A available item', 'Private because the storefront is unpublished', 1200, 'ARS', true, 1),
-  (current_setting('test.catalog_business_a')::uuid, 'Owner A unavailable item', NULL, 1300, 'ARS', false, 2);
+  (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Owner A available item', 'Private because the storefront is unpublished', 1200, 'ARS', true, 1),
+  (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Owner A unavailable item', NULL, 1300, 'ARS', false, 2);
 SELECT set_config(
   'test.catalog_item_a',
   (SELECT id::text FROM public.catalog_items
@@ -152,10 +169,19 @@ VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Catalog Owner B Business');
 SELECT set_config('test.catalog_business_b', (SELECT id::text FROM public.businesses WHERE name = 'Catalog Owner B Business'), true);
 INSERT INTO public.business_storefronts (business_id, slug, display_name, is_published)
 VALUES (current_setting('test.catalog_business_b')::uuid, 'catalog-owner-b', 'Catalog Owner B', true);
-INSERT INTO public.catalog_items (business_id, name, price_minor, currency, is_available, sort_order)
+INSERT INTO public.catalog_categories (business_id, name, sort_order)
+VALUES (current_setting('test.catalog_business_b')::uuid, 'General', 0);
+SELECT set_config(
+  'test.catalog_category_b',
+  (SELECT id::text FROM public.catalog_categories
+   WHERE business_id = current_setting('test.catalog_business_b')::uuid
+     AND name = 'General'),
+  true
+);
+INSERT INTO public.catalog_items (business_id, category_id, name, price_minor, currency, is_available, sort_order)
 VALUES
-  (current_setting('test.catalog_business_b')::uuid, 'Published available item', 1600, 'ARS', true, 1),
-  (current_setting('test.catalog_business_b')::uuid, 'Published unavailable item', 1700, 'ARS', false, 2);
+  (current_setting('test.catalog_business_b')::uuid, current_setting('test.catalog_category_b')::uuid, 'Published available item', 1600, 'ARS', true, 1),
+  (current_setting('test.catalog_business_b')::uuid, current_setting('test.catalog_category_b')::uuid, 'Published unavailable item', 1700, 'ARS', false, 2);
 
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
@@ -166,8 +192,8 @@ SELECT results_eq(
   'owner A sees their available and unavailable items in an unpublished storefront'
 );
 SELECT results_eq(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor)
-    VALUES (current_setting('test.catalog_business_a')::uuid, 'Owner A defaulted item', 900)
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor)
+    VALUES (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Owner A defaulted item', 900)
     RETURNING currency$$,
   ARRAY['ARS'],
   'owner A can create a catalog item and receives the currency default'
@@ -190,8 +216,8 @@ SELECT results_eq(
   'owner A can update mutable catalog fields on their item'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor, currency)
-    VALUES (current_setting('test.catalog_business_b')::uuid, 'Forged foreign item', 100, 'ARS')$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor, currency)
+    VALUES (current_setting('test.catalog_business_b')::uuid, current_setting('test.catalog_category_b')::uuid, 'Forged foreign item', 100, 'ARS')$$,
   '42501', NULL,
   'owner A cannot create an item for owner B business'
 );
@@ -214,32 +240,32 @@ SELECT throws_ok(
   'owner A cannot change an item creation timestamp'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor)
-    VALUES (current_setting('test.catalog_business_a')::uuid, '   ', 100)$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor)
+    VALUES (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, '   ', 100)$$,
   '23514', NULL,
   'blank item names are rejected'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor)
-    VALUES (current_setting('test.catalog_business_a')::uuid, 'Negative price', -1)$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor)
+    VALUES (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Negative price', -1)$$,
   '23514', NULL,
   'negative item prices are rejected'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor, currency)
-    VALUES (current_setting('test.catalog_business_a')::uuid, 'Lowercase currency', 100, 'ars')$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor, currency)
+    VALUES (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Lowercase currency', 100, 'ars')$$,
   '23514', NULL,
   'lowercase currency is rejected'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor, currency)
-    VALUES (current_setting('test.catalog_business_a')::uuid, 'Long currency', 100, 'PESOS')$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor, currency)
+    VALUES (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Long currency', 100, 'PESOS')$$,
   '23514', NULL,
   'currency longer than three letters is rejected'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor, sort_order)
-    VALUES (current_setting('test.catalog_business_a')::uuid, 'Negative order', 100, -1)$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor, sort_order)
+    VALUES (current_setting('test.catalog_business_a')::uuid, current_setting('test.catalog_category_a')::uuid, 'Negative order', 100, -1)$$,
   '23514', NULL,
   'negative item ordering is rejected'
 );
@@ -252,8 +278,8 @@ SELECT results_eq(
   'anon sees only available items belonging to the published storefront'
 );
 SELECT throws_ok(
-  $$INSERT INTO public.catalog_items (business_id, name, price_minor)
-    VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Anonymous item', 100)$$,
+  $$INSERT INTO public.catalog_items (business_id, category_id, name, price_minor)
+    VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', current_setting('test.catalog_category_a')::uuid, 'Anonymous item', 100)$$,
   '42501', NULL,
   'anon cannot insert catalog items'
 );
