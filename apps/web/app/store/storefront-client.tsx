@@ -60,7 +60,7 @@ function ProductMedia({ name, photo }: { name: string; photo: StorefrontPhoto })
   return <ProductMediaFallback />;
 }
 
-export default function StorefrontClient({ businessId, categories }: { businessId: string; categories: StorefrontCategory[] }) {
+export default function StorefrontClient({ businessId, categories, slug }: { businessId: string; categories: StorefrontCategory[]; slug: string }) {
   const items = useMemo(() => categories.flatMap(({ items: categoryItems }) => categoryItems), [categories]);
   const [cart, setCart] = useState(() => createCart(businessId));
   const [hydrated, setHydrated] = useState(false);
@@ -171,6 +171,9 @@ export default function StorefrontClient({ businessId, categories }: { businessI
             ))}
             <div className="flex justify-between gap-3 text-sm font-extrabold"><span>Importe orientativo</span><span className="text-right">{Object.entries(totals).map(([currency, total]) => <span className="ml-2 inline-block" key={currency}>{formatMoney(total, currency)}</span>)}</span></div>
           </div>
+        )}
+        {cart.items.length > 0 && (
+          <a className="mt-5 flex min-h-12 items-center justify-center rounded-lg bg-[var(--lime)] px-4 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)]" href={`/store/${slug}/checkout`}>Continuar compra</a>
         )}
         <p className="mt-5 rounded-lg bg-[var(--transfer-bg)] p-3 text-xs leading-5 text-[var(--transfer-text)]">Los precios y la disponibilidad son orientativos por ahora; se comprobarán cuando los pedidos estén disponibles.</p>
         <p className="mt-3 text-xs font-bold leading-5 text-[var(--muted)]">Todavía no se pueden enviar pedidos.</p>
