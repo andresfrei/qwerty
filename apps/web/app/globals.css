@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+@layer base {
+  :is(
+    a[href],
+    area[href],
+    button,
+    summary,
+    select,
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="file"],
+    input[type="range"],
+    input[type="color"],
+    [role="button"],
+    [role="link"],
+    [role="menuitem"],
+    [role="tab"]
+  ):not(:disabled):not([aria-disabled="true"]):not([inert], [inert] *) {
+    cursor: pointer;
+  }
+
+  input[type="file"]:not(:disabled):not([aria-disabled="true"]):not([inert], [inert] *)::file-selector-button {
+    cursor: pointer;
+  }
+}
+
 :root {
   --cream: #faf9f5;
   --ink: #1d1d1b;
