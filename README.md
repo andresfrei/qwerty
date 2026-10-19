@@ -4,15 +4,16 @@ Run the MVP at **https://qwerty.localhost** through the existing trusted local P
 
 ## Quick start
 
-Prerequisites: Node.js 26.5.1, pnpm 11.20.0, Docker running, and global Portless 0.15.5 with its trusted local HTTPS proxy already configured.
+Prerequisites: Node 24.21.0, pnpm 11.20.0, global Portless 0.15.5 and its existing trusted HTTPS proxy, and protected configuration for the remote Supabase backend. Supabase is remote-only; do not start Docker/local Supabase for this workflow.
 
-From the repository root, start local Supabase and the web app:
+From the MVP worktree (`/home/andresfrei/dev/qwerty-mvp`):
 
 ```sh
-pnpm exec supabase start
-pnpm dev
+pnpm dev --hostname 127.0.0.1
 ```
 
-Open [https://qwerty.localhost](https://qwerty.localhost). Supabase Studio is at [http://127.0.0.1:54323](http://127.0.0.1:54323), and Mailpit captures local email at [http://127.0.0.1:54324](http://127.0.0.1:54324). The Supabase API is available at `http://127.0.0.1:54321`.
+The script already invokes Portless; do not wrap it in another `portless` command. For a start that does not synchronize `/etc/hosts`, use `PORTLESS_SYNC_HOSTS=0 pnpm dev --hostname 127.0.0.1`.
 
-The root `dev` script sets `QWERTY_SITE_URL` and uses Portless's positional `qwerty` name to retain the exact HTTPS hostname. Portless is an existing global prerequisite; this setup adds no project dependency for it.
+Open [https://qwerty.localhost](https://qwerty.localhost). The application may run locally; its Supabase backend must be remote. A successful app start does not establish hosted Auth or receipt integration readiness.
+
+The root `dev` script assigns `QWERTY_SITE_URL=https://qwerty.localhost` and uses Portless's positional `qwerty` name. No project dependency is added. The shared dev/build launcher loads the optional workspace environment in JavaScript before a fresh Next process, avoiding unsupported dotenv flags in Next worker `NODE_OPTIONS`; see [startup precedence](docs/supabase-nextjs-configuration.md#startup-and-precedence).

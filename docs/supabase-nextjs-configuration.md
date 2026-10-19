@@ -11,7 +11,7 @@ Use the existing MVP project, not a new database. The two SDK packages, `@supaba
 
 ## Startup and precedence
 
-The web `dev` and `build` scripts invoke the installed Next CLI through Node with `--env-file-if-exists=../../.env.local`. Workspace scripts run from `apps/web`, so this loads the workspace-root file before Next reads its normal app-local environment files. Root `pnpm dev` still uses Portless and its explicit `https://qwerty.localhost` site origin; no routing or proxy configuration changes.
+The web `dev` and `build` scripts invoke `scripts/next-with-workspace-env.mjs`. It loads the optional workspace-root `.env.local` through Node's JavaScript `loadEnvFile()` API, then starts the installed Next CLI in a fresh Node process. This keeps dotenv CLI flags out of the `NODE_OPTIONS` that Next constructs for its workers. Next still reads its normal app-local defaults. Root `pnpm dev` retains Portless and the explicit `https://qwerty.localhost` origin; no proxy or hosted Auth setting is changed.
 
 For each variable, precedence is:
 
@@ -19,9 +19,9 @@ For each variable, precedence is:
 2. The workspace-root `.env.local` value loaded by Node.
 3. Next's normal app-local defaults for values not already present.
 
-A missing root file does not abort startup: Node reports that it is missing, then normal injected/app-local configuration continues. This is compatibility behavior, not proof that Supabase configuration is valid. Provide a matching public pair from the intended project. Node parses the root file natively; use literal values rather than relying on shell evaluation or variable expansion.
+A missing root file does not abort startup: the launcher preserves the notice `../../.env.local not found. Continuing without it.` on stderr, then normal injected/app-local configuration continues. This is compatibility behavior, not proof that Supabase configuration is valid. Provide a matching public pair from the intended project. Node parses the root file natively; use literal values rather than relying on shell evaluation or variable expansion.
 
-The commands require Node support for `--env-file-if-exists`; the tested runtime is Node 24.21.0. These guarantees apply to the workspace `dev` and `build` scripts, not arbitrary direct `next` invocations. Do not copy credential files between worktrees or assume their contents are interchangeable.
+The launcher requires Node's `process.loadEnvFile()` API; the tested runtime is Node 24.21.0. Valid inherited `NODE_OPTIONS` are kept unchanged, and arguments, stdout/stderr, exit status and termination signals are forwarded. These guarantees apply to the workspace `dev` and `build` scripts, not arbitrary direct `next` invocations. Do not copy credential files between worktrees or assume their contents are interchangeable.
 
 ## Selection and compatibility
 
@@ -37,7 +37,7 @@ Normal browser and SSR clients use the public key with the user's verified sessi
 
 The trusted-photo runtime reads `SUPABASE_SECRET_KEY` separately from its server environment. Keep it server-only, never under a `NEXT_PUBLIC_` name. Startup loading does not rename private variables into public ones or verify the key's project/permissions.
 
-Do not paste keys into chat or commit `.env.local`. Startup wiring changes neither credential values nor the sensitive-file access policy. Its tests use newly created synthetic files and a Next stub: they do not read actual credential files, start/restart the application, perform a real Next build, start local Supabase, or write database fixtures. Real preflight and live photo proof remain separate gated steps.
+Do not paste keys into chat or commit `.env.local`. Startup wiring changes neither credential values nor the sensitive-file access policy. Its tests use newly created synthetic files and a Next stub, including the installed Next option formatter and a real child-process fork boundary. They do not read actual credential files, start/restart the application, perform a real Next build, start local Supabase, or write database fixtures. Real preflight and live photo proof remain separate gated steps.
 
 ## Focused check
 

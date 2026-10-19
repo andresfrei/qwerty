@@ -2,9 +2,9 @@
   "name": "@qwerty/web",
   "private": true,
   "scripts": {
-    "dev": "node --env-file-if-exists=../../.env.local node_modules/next/dist/bin/next dev",
+    "dev": "node scripts/next-with-workspace-env.mjs dev",
     "typecheck": "tsc --noEmit",
-    "build": "node --env-file-if-exists=../../.env.local node_modules/next/dist/bin/next build",
+    "build": "node scripts/next-with-workspace-env.mjs build",
     "lint": "biome lint app"
   },
   "dependencies": {

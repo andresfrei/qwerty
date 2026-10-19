@@ -13,6 +13,7 @@ const rootPackage = JSON.parse(readFileSync(path.join(repository, "package.json"
 const require = createRequire(path.join(web, "package.json"));
 const nextRequire = createRequire(require.resolve("next/package.json"));
 const envHelper = nextRequire.resolve("@next/env");
+const nextOptions = nextRequire.resolve("./dist/server/lib/utils.js");
 const rootValues = {
   NEXT_PUBLIC_SUPABASE_URL: "https://root.example.test",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "synthetic-public-root",
@@ -38,8 +39,8 @@ const dotenv = (values) => Object.entries(values).map(([name, value]) => `${name
 function fixture(mode, { rootPresent = true } = {}) {
   const args = webPackage.scripts[mode].split(" ");
   assert.deepEqual(args, [
-    "node", "--env-file-if-exists=../../.env.local", "node_modules/next/dist/bin/next", mode,
-  ], `${mode} must load the optional workspace root before Next`);
+    "node", "scripts/next-with-workspace-env.mjs", mode,
+  ], `${mode} must load the optional workspace root without a dotenv CLI flag`);
 
   // These are new test-owned files containing only invented values, not project credentials.
   const scratch = path.join(repository, ".pi");
@@ -48,6 +49,9 @@ function fixture(mode, { rootPresent = true } = {}) {
   const app = path.join(root, "apps/web");
   const cli = path.join(app, "node_modules/next/dist/bin/next");
   mkdirSync(path.dirname(cli), { recursive: true });
+  mkdirSync(path.join(app, "scripts"), { recursive: true });
+  writeFileSync(path.join(app, "scripts/next-with-workspace-env.mjs"),
+    readFileSync(path.join(web, "scripts/next-with-workspace-env.mjs"), "utf8"));
   const rootText = dotenv(rootValues);
   const webText = dotenv(webValues);
   const rootFile = path.join(root, ".env.local");
@@ -67,6 +71,16 @@ const output = {
 };
 process.stdout.write(JSON.stringify(output) + "\\n");
 if (process.argv.includes("--fixture-failure")) { process.stderr.write("fixture-next-failure\\n"); process.exitCode = 7; }
+if (process.argv.includes("--fixture-fork-options")) {
+  const { getParsedNodeOptions, formatNodeOptions } = require(${JSON.stringify(nextOptions)});
+  const { spawnSync } = require("node:child_process");
+  const { nodeOptions, execArgv } = formatNodeOptions(getParsedNodeOptions());
+  const child = spawnSync(process.execPath, [...execArgv, "-e", 'process.emitWarning("fixture-warning", {code:"QWERTY_FIXTURE_WARNING"}); process.stdout.write("fork-child-started\\\\n")'], {
+    env: { ...process.env, NODE_OPTIONS: nodeOptions }, encoding: "utf8",
+  });
+  process.stdout.write(child.stdout ?? ""); process.stderr.write(child.stderr ?? "");
+  process.exitCode = child.status ?? 1;
+}
 `);
   return {
     run(extra = [], environment = {}) {
@@ -99,6 +113,14 @@ test("root pnpm dev retains Portless routing and the explicit site origin", () =
 });
 
 for (const mode of ["dev", "build"]) {
+  test(`${mode}: Next can fork without receiving a forbidden dotenv Node option`, () => {
+    const args = ["--fixture-fork-options"];
+    const result = fixture(mode).run(args, { NODE_OPTIONS: "--no-warnings" });
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, expected(mode, "root", args) + "fork-child-started\n");
+    assert.equal(result.stderr, "");
+  });
+
   test(`${mode}: workspace-root public and private variables precede app-local defaults`, () => {
     const result = fixture(mode).run();
     assert.equal(result.status, 0);
