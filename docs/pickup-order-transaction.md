@@ -1,6 +1,6 @@
 # Pickup order transaction — T4b source packet
 
-**Latest remote state:** schema applied once as migration `20261019195149`; the first rollback proof failed PL/pgSQL compilation (SQLSTATE42601), before assertions. No database-contract PASS is claimed.
+**Latest remote state:** schema applied once as migration `20261019195149`. The first proof failed compilation (42601); the separately authorized CASE correction compiled, but its one run failed fixture setup (23502, missing category_id). No complete database-contract PASS is claimed.
 S4/S6/S8/S17; T4c needs independent review and NEW precise target/fixture consent.
 Old S12/S15/S16 grants and consumed markers confer no permission. There is no
 execution runner, configuration loader, network client, or fallback database.
@@ -79,7 +79,7 @@ FORCE RLS, and direct service INSERT can bypass Node/finalizer validation. Never
 expose service credentials or either RPC to a browser. Migration owner/operator
 can of course alter data; immutability describes application role capabilities.
 
-## Rollback permission/contract proof — first execution failed
+## Rollback permission/contract proof — fixture setup remains blocked
 
 `supabase/tests/database/mvp_pickup_orders.remote.sql` is an executable operator
 packet, with20s statement/3s lock limits and an unconditional fixture-subtransaction
@@ -260,6 +260,14 @@ Target: `https://jxebudqzcmxgdsegrrqw.supabase.co`. Applied migration `202610191
 
 The one proof attempt failed SQLSTATE42601 at `IF visible_count <> CASE WHEN role_name = stranger::text THEN 0 ELSE 1 END THEN`. No DO-body assertions or fixture writes ran. A subsequent read-only check found zero rows in each of the ten exact fixture/Storage namespace counters; no global or independent residue audit is claimed. The executed SQL file remains byte-identical for audit, including its original pre-execution header.
 
-The next proposal is a proof-only syntax correction and one newly authorized proof run, not another migration application. Nothing is retried automatically.
+S19 authorized the proof-only CASE syntax correction and one fresh run; the schema was not reapplied. The corrected script compiled but failed fixture setup. S18 and S19 are consumed; nothing is retried automatically.
 
 Security advisor output: two INFO no-policy notices for the intentionally private memberships/receipt tables ([reference](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)) and eight anonymous-role access warnings, including `pickup_orders` ([reference](https://supabase.com/docs/guides/database/database-advisors?queryGroups=lint&lint=0012_auth_allow_anonymous_sign_ins)). Guest-role reads are intentional, but effective row isolation remains unproven until the contract proof runs; these notices do not by themselves establish a bypass.
+
+## S19 correction and remaining fixture blocker
+
+The only SQL edit adds parentheses around the reader CASE expression; expected buyer/owner visibility1 and stranger0, fixtures, assertions, rollback and3s/20s limits remain unchanged. A new SOURCE regression observed RED then7/7 GREEN; independent correction review also passed7/7. Neither is an engine contract PASS.
+
+The one S19 proof (SHA256 `a9fec23b2dcb6c3ad4ad541840d218af2d5e4eca63b588a00df025d6d1a333b7`) passed compilation, then failed SQLSTATE23502 because its `catalog_items` fixture omitted required `category_id`. Ten exact fixture/Storage counters were observed zero afterward. The schema remains applied; no remigration, retry or category-fixture patch occurred.
+
+Before requesting another execution, reconcile the complete fixture against the existing schema and prepare one bounded correction, rather than use the remote as a one-error-at-a-time debugger. That work and any fresh proof need the next explicit decision. Races and original-receipt HTTP/Storage proof remain outside these grants.

@@ -271,7 +271,7 @@ BEGIN
       SET LOCAL ROLE authenticated;
       SELECT count(*) INTO visible_count FROM public.pickup_orders WHERE business_id = business;
       RESET ROLE;
-      IF visible_count <> CASE WHEN role_name = stranger::text THEN 0 ELSE 1 END THEN
+      IF visible_count <> (CASE WHEN role_name = stranger::text THEN 0 ELSE 1 END) THEN
         RAISE EXCEPTION 'private reader boundary';
       END IF;
     END LOOP;

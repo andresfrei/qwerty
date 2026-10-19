@@ -100,6 +100,11 @@ test('SOURCE: effective RPC EXECUTE assertions distinguish ACL denial from downs
   }
 });
 
+test('SOURCE: reader expectation keeps CASE parenthesized inside the PLpgSQL IF expression', () => {
+  assert.ok(proof.includes('IF visible_count <> (CASE WHEN role_name = stranger::text THEN 0 ELSE 1 END) THEN'));
+  assert.doesNotMatch(proof, /IF visible_count <> CASE WHEN/);
+});
+
 test('SOURCE: future engine packet is bounded and rollback-only, not an execution runner', () => {
   assert.ok(proof.startsWith('-- NOT EXECUTED.'));
   assert.match(proof, /SET LOCAL statement_timeout = '20s'/);
