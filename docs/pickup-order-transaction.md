@@ -1,6 +1,6 @@
 # Pickup order transaction — T4b source packet
 
-**Latest remote state:** schema applied once as migration `20261019195149`. The first proof failed compilation (42601); the separately authorized CASE correction compiled, but its one run failed fixture setup (23502, missing category_id). No complete database-contract PASS is claimed.
+**Latest remote state:** schema applied as migration `20261019195149`; the fully reconciled S21 SQL contract proof completed without SQL error and rolled back. Eleven exact fixture/Storage counters were observed zero afterward. This is sequential SQL evidence, not concurrent-session, HTTP, original-receipt GET or UI acceptance. Historical S18/S19 failures remain recorded below.
 S4/S6/S8/S17; T4c needs independent review and NEW precise target/fixture consent.
 Old S12/S15/S16 grants and consumed markers confer no permission. There is no
 execution runner, configuration loader, network client, or fallback database.
@@ -311,3 +311,11 @@ review remains pending. No unresolved metadata blocker identified. Corrected SQL
 No backend writes, marker edits, schema changes, full-suite/photo reruns, typecheck,
 lint, build, dependency or shared-CLI changes; differential CLI is N/A. Earlier
 failures/history and unrelated work remain untouched. Parent owns selective commits.
+
+## S21 sequential SQL result
+
+The exact reviewed proof `f414eb52bfccf758ca9e93112962dd31faeb89f423dc1dee23d3e78191030420` was executed once under S21/L112 on the identified remote. PostgreSQL completed the error-raising DO assertions and outer ROLLBACK without an exception; the tool returned an empty result array, not an individual-case total. No retry or migration reapplication occurred.
+
+This exercised effective SQL EXECUTE/table denials, same-actor/business receipt FKs and uniqueness, creation/replay/conflict, current-catalog fingerprints, single currency, buyer/current-confirmed-owner/foreign visibility and immutable-write controls inside one operator transaction. A separate read-only query found all eleven exact namespace counters zero (including category031); this is not a global or independent residue audit.
+
+The S21 grant is consumed. Two-session races, actual Auth/session/HTTP/cart behavior and original-receipt GET remain unproven and require their own exact fixture/cleanup scope. T4d source implementation may now use this verified sequential contract, with injected tests only; no remaining acceptance requirement is waived.

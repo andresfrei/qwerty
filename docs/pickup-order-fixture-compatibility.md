@@ -1,14 +1,14 @@
-# Pickup proof fixture reconciliation — source candidate only
+# Pickup proof fixture reconciliation and sequential SQL evidence
 
-**Complete source repair prepared under S20; corrected SQL not executed.**
+**S20 source repair reviewed; exact corrected SQL executed once under S21 and rolled back without SQL error.**
 S18/S19 are spent. Schema `20261019195149` remains unchanged. The prior engine
-23502 is preserved evidence, not a new production-order defect. Independent SOURCE risk review passed; fresh exact remote execution consent remains required.
+23502 is preserved evidence, not a new production-order defect. Independent SOURCE review passed before S21; that execution grant is now consumed.
 
 ## Compatibility matrix
 
 All fixture INSERTs name columns explicitly. IDs below abbreviate the exact
 `81000000-0000-4000-8000-000000000` prefix. Defaults listed are intentionally
-omitted columns, not permission grants. Every mutation below is **not executed**.
+omitted columns, not permission grants. The table records the S20 audit; its assertions were subsequently exercised inside the successful S21 rollback transaction.
 
 | Table | Mandatory columns supplied / defaults used | FK, check or guard / fixture binding and mutation expectations |
 | --- | --- | --- |
@@ -106,3 +106,9 @@ executed here. No staged files, commits, marker changes or new dependencies.
 Independent reviewer `mvfpfudr-17-kuy4` found no P1/P2 in the complete reconciliation and ran11/11 SOURCE checks (exit0). Parent reran the focused11 once (exit0,240.689015ms), checked the production-schema/quote/photo diffs empty, and recomputed the proposed SQL SHA256 as `f414eb52bfccf758ca9e93112962dd31faeb89f423dc1dee23d3e78191030420`. The reviewer did not independently recompute that hash: its optional query timed out and was not retried.
 
 These are source checks, not PostgreSQL execution or native approval. Full-suite/photo checks remain explicitly deferred; historical engine failures and all spent markers are retained. No remote writes occurred during F1.
+
+## Subsequent S21 execution
+
+The exact proposed proof ran once on the identified target and completed without SQL error (empty tool result array; no per-case count reported). Its DO assertions and outer rollback completed; a separate read-only query observed all eleven exact fixture/Storage namespace counters zero, including category031. No remigration or Storage write occurred. Earlier source-only statements above describe the preparation phase, not a second execution.
+
+S21 proves this sequential SQL bundle, not concurrent transactions, original receipt bytes, actual Auth/session/HTTP or UI behavior. The grant is consumed; no further backend writes are authorized by these results.
