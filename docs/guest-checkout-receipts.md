@@ -1,6 +1,6 @@
 # Private receipt staging
 
-Receipts can be staged for an **existing server-verified guest or registered session**. This is not order submission, payment confirmation, account creation, history recovery or attachment UI. T3c/T4 own those later steps.
+Receipts can be staged for an **existing server-verified guest or registered session**. The checkout attachment UI is implemented separately in T3c below. This is not order submission, payment confirmation, account creation or history recovery; T4/T5 own those later steps.
 
 ## Verified remote checkpoint
 
@@ -8,9 +8,19 @@ On 2026-10-19, the single S16 run (job24) completed the actual isolated Next bui
 
 Previously applied/read-back units are owner verification `20261018020731`, catalog options/settings `20261018020749` and private receipts `20261018020759`. Separate primary-session S14 SQL verification passed receipt29/29 and targeted owner/catalog33/33, with unconditional rollback and no retained SQL fixtures. No migration replay is needed. Do not change SMTP, hosted Site URL, manual linking or other providers.
 
-Historical failures remain in the feature Log and local artifacts: initial alias guard refusal, normalized-only provider mismatch, job20's lost failure phase and job22's transport timeout. Source tests, SQL checks, synthetic packaging and actual remote proof are separate evidence—not interchangeable claims. Neither the UI nor an atomic order exists yet.
+Historical failures remain in the feature Log and local artifacts: initial alias guard refusal, normalized-only provider mismatch, job20's lost failure phase and job22's transport timeout. Source tests, SQL checks, synthetic packaging and actual remote proof are separate evidence—not interchangeable claims. That historical run did not test the attachment UI; its current source checks are separate below. Atomic order submission does not exist yet.
 
 See [storage and owner boundaries](guest-receipt-storage.md) and [public proof source and limits](guest-receipt-proof.md). Future live execution needs a fresh scoped authorization; S15 and S16 are consumed.
+
+## Checkout attachment UI (T3c)
+
+After deliberately preparing the existing guest/registered session, choose an original JPEG, PNG, static WebP or PDF up to10MiB and select **Adjuntar comprobante**. The native picker suggests formats; the server—not the filename or browser MIME—validates content. The client sends the original Blob as raw `application/octet-stream`, never multipart, contact, actor/business IDs or direct Supabase credentials. There is no compression or inline document preview.
+
+Pending clicks are guarded. Rejected, malformed or failed responses leave cart/contact/file in memory for explicit retry; a failed response does not prove that no private orphan was stored. On401, explicitly prepare the session again before retrying, without clearing those drafts. Upload retries create fresh staging resources, not duplicate orders: no order endpoint is called. Selection of a different file clears only the displayed receipt reference.
+
+Only201 with the exact UUID reference is shown as staged. **Descargar original** navigates to the private attachment GET, which independently rechecks current session/business authority. A known ID is not access; an attachment is not confirmed payment or order submission. File/receipt reference are not persisted in localStorage; existing cart version/key and memory-only contact remain unchanged. Reload does not restore these temporary attachment/contact fields.
+
+Current deterministic evidence: new real-component callback tests observed RED3 (missing controls) → GREEN5 including previous contact/SSR tests. They cover original raw payload/headers, four picker formats, exact10MiB and oversize boundaries, failure/duplicate/retry preservation and explicit session recovery. These are fake transport/hooks, not browser layout or a real provider upload. Full source suite371/371 (job26exit0), typecheck `--incremental false` and lint exit0 (one pre-existing `<img>` warning) also passed. Independent mvfjsete-w-ez8j ran the focus5 once and returned SOURCE PASS/no P1/P2. Existing-Portless browser job27exit0 rendered this actual component with installed React and current CSS at390/1440: native file selection, original PNG/PDF hashes, failure/retry, retained drafts, keyboard order, reduced motion and zero horizontal overflow passed. Four synthetic screenshots were inspected; this is not human QA, full Next checkout-route SSR, a production build or a fresh remote upload. No new frontend/backend process or Portless registration was used; fake browser API responses performed no provider writes. Native approval remains unknown. The attachment unit is verified; atomic order submission is still later work.
 
 ## HTTP contract
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { CheckoutCatalogRead } from "@/app/lib/checkout-catalog-reader";
 import type { GroupSelection } from "@/app/lib/catalog-selection";
+import { CHECKOUT_RECEIPT_MAX_BYTES, uploadCheckoutReceipt, type ReceiptUploadResult } from "@/app/lib/checkout-receipt";
 import { cartStorageKey, inspectCart, submitCheckout, updateQuantity, updateSelection, validateContact, type Contact, type ContactErrors } from "@/app/lib/checkout-draft";
 import { cartTotalsByCurrency, createCart, formatMoney, normalizePersistedCart, persistCart, type CartState } from "@/app/lib/storefront";
 
@@ -25,6 +26,10 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<"idle" | "invalid" | "ready" | "error">("idle");
   const inflight = useRef(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptResult, setReceiptResult] = useState<{ status: "idle" } | ReceiptUploadResult>({ status: "idle" });
+  const receiptInflight = useRef(false);
 
   useEffect(() => {
     try {
@@ -54,7 +59,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inflight.current || !hydrated || status === "ready") return;
+    if (inflight.current || receiptInflight.current || !hydrated || status === "ready") return;
     setErrors(validateContact(contact));
     if (Object.keys(validateContact(contact)).length || !inspection.valid) {
       setStatus("invalid");
@@ -63,10 +68,27 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
     inflight.current = true;
     setBusy(true);
     try {
-      setStatus(await submitCheckout(catalog.storefront.slug, contact, cart, data));
+      const next = await submitCheckout(catalog.storefront.slug, contact, cart, data);
+      setStatus(next);
+      if (next === "ready" && receiptResult.status === "session") setReceiptResult({ status: "idle" });
     } finally {
       inflight.current = false;
       setBusy(false);
+    }
+  }
+
+  async function handleReceiptUpload() {
+    if (receiptInflight.current || inflight.current || status !== "ready" || !receiptFile || receiptResult.status === "staged") return;
+    receiptInflight.current = true;
+    setReceiptBusy(true);
+    setReceiptResult({ status: "idle" });
+    try {
+      const result = await uploadCheckoutReceipt(catalog.storefront.slug, receiptFile);
+      setReceiptResult(result);
+      if (result.status === "session") setStatus("idle");
+    } finally {
+      receiptInflight.current = false;
+      setReceiptBusy(false);
     }
   }
 
@@ -144,13 +166,33 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
             {inspection.valid ? Object.entries(totals).map(([currency, total]) => <p key={currency}>Total orientativo: {formatMoney(total, currency)}</p>) : <p>Completá y revisá el carrito para ver el total.</p>}
             <p className="mt-2 text-xs font-normal leading-5">Los importes incluyen las opciones y el recargo configurado por dos sabores ({formatMoney(data.surchargeMinor, data.items[0]?.currency ?? "ARS")}). El servidor volverá a verificarlos al enviar un pedido.</p>
           </div>
-          <button disabled={busy || !hydrated || !inspection.valid || status === "ready"} className="mt-5 min-h-12 w-full rounded-lg bg-[var(--lime)] px-4 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50" type="submit">{busy ? "Preparando…" : status === "ready" ? "Sesión preparada" : "Continuar como invitado"}</button>
+          <button disabled={busy || receiptBusy || !hydrated || !inspection.valid || status === "ready"} className="mt-5 min-h-12 w-full rounded-lg bg-[var(--lime)] px-4 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50" type="submit">{busy ? "Preparando…" : status === "ready" ? "Sesión preparada" : "Continuar como invitado"}</button>
           <div aria-live="polite" aria-atomic="true" className="mt-4 text-sm leading-6">
             {status === "invalid" && <p>Revisá los datos de contacto y las opciones del carrito.</p>}
             {status === "error" && <p>No pudimos preparar la sesión. Tus datos y el carrito siguen acá; podés reintentar.</p>}
-            {status === "ready" && <p>La sesión está preparada para un paso posterior. La carga de comprobante y el envío todavía no están disponibles.</p>}
+            {status === "ready" && <p>La sesión está preparada. Podés adjuntar el comprobante privado; el envío del pedido será un paso posterior.</p>}
             {storageError && <p>No pudimos guardar el carrito en este navegador. Conservamos los cambios mientras permanezcas en esta página.</p>}
           </div>
+          <section className="mt-6 border-t border-[var(--line)] pt-5" aria-labelledby="receipt-title" aria-busy={receiptBusy}>
+            <h3 id="receipt-title" className="text-lg font-extrabold">Comprobante privado</h3>
+            <p id="receipt-help" className="mt-3 text-sm leading-6 text-[var(--muted)]">JPEG, PNG, WebP estático o PDF, hasta 10 MiB. Conservamos el archivo original, sin comprimirlo. Adjuntarlo no confirma el pago.</p>
+            <label htmlFor="receipt-file" className="mb-2 mt-4 block text-sm font-bold">Archivo del comprobante</label>
+            <input id="receipt-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy || receiptBusy || status !== "ready"} aria-describedby="receipt-help receipt-status" className="block w-full min-w-0 max-w-full text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[var(--soft-lime)] file:px-3 file:py-2 file:font-bold file:text-[var(--olive)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50" onChange={(event) => {
+              if (receiptInflight.current) return;
+              const file = event.currentTarget.files?.[0] ?? null;
+              setReceiptFile(file);
+              setReceiptResult(file && file.size > CHECKOUT_RECEIPT_MAX_BYTES ? { status: "too_large" } : { status: "idle" });
+            }} />
+            {receiptFile && <p id="receipt-selected-file" className="mt-2 break-all text-xs leading-5 text-[var(--muted)]">{receiptFile.name}</p>}
+            <button id="receipt-upload" type="button" disabled={busy || receiptBusy || status !== "ready" || !receiptFile || receiptFile.size === 0 || receiptFile.size > CHECKOUT_RECEIPT_MAX_BYTES || receiptResult.status === "staged"} className={`${action} mt-4 w-full`} onClick={handleReceiptUpload}>{receiptBusy ? "Adjuntando…" : receiptResult.status === "staged" ? "Comprobante adjuntado" : receiptResult.status === "idle" ? "Adjuntar comprobante" : "Volver a intentar"}</button>
+            <div id="receipt-status" aria-live="polite" aria-atomic="true" className="mt-3 text-sm leading-6">
+              {status !== "ready" && receiptResult.status !== "session" && <p>Primero completá tus datos y prepará la sesión para adjuntar el archivo.</p>}
+              {receiptResult.status === "too_large" && <p>El archivo supera los 10 MiB. Elegí uno más pequeño; tus datos y el carrito siguen acá.</p>}
+              {receiptResult.status === "error" && <p>No pudimos confirmar la carga. El archivo, tus datos y el carrito siguen acá; podés volver a intentar.</p>}
+              {receiptResult.status === "session" && <p>Necesitamos preparar la sesión de nuevo. Tus datos, el carrito y el archivo siguen acá.</p>}
+              {receiptResult.status === "staged" && <p>Comprobante adjuntado. El pago todavía no está confirmado. <a id="receipt-original" href={`/api/checkout/receipts/${receiptResult.receiptId}?slug=${encodeURIComponent(catalog.storefront.slug)}`} download rel="noreferrer" className="font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)]">Descargar original</a></p>}
+            </div>
+          </section>
           <p className="mt-4 rounded-lg bg-[var(--soft-lime)] p-3 text-sm font-bold text-[var(--olive)]">Todavía no se envió ningún pedido.</p>
         </section>
       </form>

@@ -50,8 +50,10 @@ A successful response must be exactly `{ "ready": true }`. Network failures,
 rejections, 503 and malformed replies leave contact, cart and selections intact
 with generic retry feedback. Readiness neither clears the cart nor submits an
 order. The UI explicitly says “Todavía no se envió ningún pedido” and offers no
-pretend receipt/order action. Receipt storage, atomic order creation, tracking,
-account linking and production Auth readiness are not delivered here.
+pretend order action. This is the historical T2b checkpoint; subsequent private
+storage (T3b) and the attachment/retry UI (T3c) are documented in
+[private receipt staging](guest-checkout-receipts.md). Atomic order creation,
+tracking and account linking are still separate later work.
 
 ## Verification scope
 
