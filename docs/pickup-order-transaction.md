@@ -1,6 +1,6 @@
 # Pickup order transaction — T4b source packet
 
-**Source only. Nothing here has been applied or executed against PostgreSQL.**
+**Latest remote state:** schema applied once as migration `20261019195149`; the first rollback proof failed PL/pgSQL compilation (SQLSTATE42601), before assertions. No database-contract PASS is claimed.
 S4/S6/S8/S17; T4c needs independent review and NEW precise target/fixture consent.
 Old S12/S15/S16 grants and consumed markers confer no permission. There is no
 execution runner, configuration loader, network client, or fallback database.
@@ -79,7 +79,7 @@ FORCE RLS, and direct service INSERT can bypass Node/finalizer validation. Never
 expose service credentials or either RPC to a browser. Migration owner/operator
 can of course alter data; immutability describes application role capabilities.
 
-## Future rollback permission/contract proof — NOT EXECUTED
+## Rollback permission/contract proof — first execution failed
 
 `supabase/tests/database/mvp_pickup_orders.remote.sql` is an executable operator
 packet, with20s statement/3s lock limits and an unconditional fixture-subtransaction
@@ -252,4 +252,14 @@ Schema/core source slice: `0cc7dcc2c13c768ffd16967b28ee1cf2227da673` (373+/1−)
 Rollback-proof/protocol slice: `092c0168bcea915c6f28e7145a7f7147dc89f88e` (552+/1−; cohesive overage retains the complete negative controls and race recipe).
 Independent SOURCE review and P2-only recheck passed; parent focused6 passed. Packaging whitespace checks initially failed and were corrected in the final slice; no history rewrite. No push, PostgreSQL execution or native approval.
 Photo/full-suite rerun is explicitly deferred by the user in featureL99; its earlier failure/timeout is not a PASS.
-The next proposed remote phase is only one bounded schema application plus one rollback-only SQL contract proof. It does not authorize committed race fixtures or original-receipt HTTP/Storage tests; exact target/packet consent is still required.
+The first bounded schema application and rollback proof were authorized by S18/L104. Schema application succeeded; the proof failed compilation. That grant is consumed, not permission to retry or reapply. Committed race fixtures and original-receipt HTTP/Storage tests remain outside its scope.
+
+## S18 remote evidence and current blocker
+
+Target: `https://jxebudqzcmxgdsegrrqw.supabase.co`. Applied migration `20261019195149`; readback confirms FORCE RLS, INVOKER entrypoints, expected effective EXECUTE/table permissions, immediate uniqueness and the composite RESTRICT receipt reference. Metadata is not a row-isolation or race test.
+
+The one proof attempt failed SQLSTATE42601 at `IF visible_count <> CASE WHEN role_name = stranger::text THEN 0 ELSE 1 END THEN`. No DO-body assertions or fixture writes ran. A subsequent read-only check found zero rows in each of the ten exact fixture/Storage namespace counters; no global or independent residue audit is claimed. The executed SQL file remains byte-identical for audit, including its original pre-execution header.
+
+The next proposal is a proof-only syntax correction and one newly authorized proof run, not another migration application. Nothing is retried automatically.
+
+Security advisor output: two INFO no-policy notices for the intentionally private memberships/receipt tables ([reference](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)) and eight anonymous-role access warnings, including `pickup_orders` ([reference](https://supabase.com/docs/guides/database/database-advisors?queryGroups=lint&lint=0012_auth_allow_anonymous_sign_ins)). Guest-role reads are intentional, but effective row isolation remains unproven until the contract proof runs; these notices do not by themselves establish a bypass.
