@@ -245,3 +245,11 @@ MODULE_TYPELESS_PACKAGE_JSON warning; no separate output-file path was returned.
 No SQL engine, full suite, photo test, typecheck or lint was run in this correction.
 Self-review was limited to this P2: S6 proof distinguishes effective ACLs from
 underlying table denials; S8 remains source-only with no backend or fixture action.
+
+## Source delivery
+
+Schema/core source slice: `0cc7dcc2c13c768ffd16967b28ee1cf2227da673` (373+/1−).
+Rollback-proof/protocol slice: `092c0168bcea915c6f28e7145a7f7147dc89f88e` (552+/1−; cohesive overage retains the complete negative controls and race recipe).
+Independent SOURCE review and P2-only recheck passed; parent focused6 passed. Packaging whitespace checks initially failed and were corrected in the final slice; no history rewrite. No push, PostgreSQL execution or native approval.
+Photo/full-suite rerun is explicitly deferred by the user in featureL99; its earlier failure/timeout is not a PASS.
+The next proposed remote phase is only one bounded schema application plus one rollback-only SQL contract proof. It does not authorize committed race fixtures or original-receipt HTTP/Storage tests; exact target/packet consent is still required.
