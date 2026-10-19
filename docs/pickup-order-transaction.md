@@ -79,7 +79,7 @@ FORCE RLS, and direct service INSERT can bypass Node/finalizer validation. Never
 expose service credentials or either RPC to a browser. Migration owner/operator
 can of course alter data; immutability describes application role capabilities.
 
-## Rollback permission/contract proof — fixture setup remains blocked
+## Rollback permission/contract proof — repaired candidate, not executed
 
 `supabase/tests/database/mvp_pickup_orders.remote.sql` is an executable operator
 packet, with20s statement/3s lock limits and an unconditional fixture-subtransaction
@@ -89,7 +89,9 @@ No Storage object is uploaded; metadata fixture alone does not prove original GE
 Global counter comparisons require an isolated/quiescent reviewed target window.
 
 Auth IDs810…001–003, businesses810…010/011, receipt810…020, item810…030,
-attempt810…040/041, optional group810…050 and option810…051 are exact in SQL.
+category810…031, attempt810…040/041, optional group810…050 and option810…051
+are exact in SQL. S20 source reconciliation adds the same-business category before
+the item; see the [complete compatibility matrix](pickup-order-fixture-compatibility.md).
 Future scope includes only those fixtures, their Auth timestamps, storefront,
 optional options/settings and rollback. No broad deletion or fixture cleanup API.
 The packet checks browser RPC/INSERT denials, unchanged receipt/row/Storage
@@ -101,7 +103,9 @@ stranger, currently unconfirmed/deleted owner and all-role UPDATE denials.
 These are **authored assertions**, not observed engine PASS results.
 
 The packet also probes cross-business FK rejection, anon SELECT, all-role order
-DELETE denial and owner reassignment. T4c must additionally prove immediate unique
+DELETE denial, authenticated owner-identity UPDATE denial, and a distinct
+operator-only synthetic ownership rewrite (not an app transfer feature).
+T4c must additionally prove immediate unique
 constraints under races, full original receipt GET byte/metadata preservation with
 real staging, and HTTP rejection cart/contact preservation. Validate ACLs including inherited/default
 and column privileges; do not infer effective denial from these source greps.
@@ -270,4 +274,40 @@ The only SQL edit adds parentheses around the reader CASE expression; expected b
 
 The one S19 proof (SHA256 `a9fec23b2dcb6c3ad4ad541840d218af2d5e4eca63b588a00df025d6d1a333b7`) passed compilation, then failed SQLSTATE23502 because its `catalog_items` fixture omitted required `category_id`. Ten exact fixture/Storage counters were observed zero afterward. The schema remains applied; no remigration, retry or category-fixture patch occurred.
 
-Before requesting another execution, reconcile the complete fixture against the existing schema and prepare one bounded correction, rather than use the remote as a one-error-at-a-time debugger. That work and any fresh proof need the next explicit decision. Races and original-receipt HTTP/Storage proof remain outside these grants.
+At the S19 stopping point, complete fixture reconciliation required a new decision.
+S20/L108 subsequently authorized that source repair and metadata reads, not another
+execution. Races and original-receipt HTTP/Storage proof remain outside these grants.
+
+## S20 complete source reconciliation — engine proof pending
+
+The [compatibility matrix](pickup-order-fixture-compatibility.md) audits all11
+fixture-relevant deployed tables and every setup/mutation/default/guard expectation.
+The corrected candidate adds category031 and same-business item binding, explicit
+settings columns, explicit non-SSO Auth flags, symmetric collision/residue checks,
+and deterministic041 negative attempts. Receipt uniqueness now uses the valid
+buyer/business, isolating23505 from actor-FK precedence. No production guard changed.
+Application owner-identity mutation must deny42501; the prior operator-only dynamic
+owner RLS control remains, explicitly not a supported ownership-transfer feature.
+State UPDATE denials and rejection unchanged-count checks are strengthened.
+
+Final candidate SQL SHA256:
+`f414eb52bfccf758ca9e93112962dd31faeb89f423dc1dee23d3e78191030420`.
+This is a proposed review hash, not a frozen consent marker. Added exact ID:
+`81000000-0000-4000-8000-000000000031` in `public.catalog_categories`.
+Full proposed future target/table/fixture scope is in the matrix; new review and
+precise execution consent are still required. S18/S19 remain consumed.
+
+Focused command only:
+`node --experimental-strip-types --test apps/web/tests/order-sql-contract.test.mjs`.
+Static RED7passed/3failed exit1; deterministic-key follow-up RED10/1 exit1;
+GREEN11/11 exit0; preservation-control regression RED10/1 exit1; final
+GREEN11/11 exit0 in152.212527ms. Exact stdout/stderr are retained in the worker tool
+transcript, including the unchanged MODULE_TYPELESS_PACKAGE_JSON warning.
+No static test loads the local metadata artifact or simulates a database.
+
+Self-review S4/S6/S8/S17/S20 completed at source level; parent independent risk
+review remains pending. No unresolved metadata blocker identified. Corrected SQL
+**not executed**; no parser, permission, atomicity, race, orders/API/UI or GET PASS.
+No backend writes, marker edits, schema changes, full-suite/photo reruns, typecheck,
+lint, build, dependency or shared-CLI changes; differential CLI is N/A. Earlier
+failures/history and unrelated work remain untouched. Parent owns selective commits.

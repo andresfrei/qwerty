@@ -105,6 +105,55 @@ test('SOURCE: reader expectation keeps CASE parenthesized inside the PLpgSQL IF 
   assert.doesNotMatch(proof, /IF visible_count <> CASE WHEN/);
 });
 
+test('SOURCE: fixture hierarchy supplies required category and explicit settings columns', () => {
+  const categoryInsert = proof.indexOf('INSERT INTO public.catalog_categories(id, business_id, name)');
+  const itemInsert = proof.indexOf('INSERT INTO public.catalog_items(id, business_id, category_id, name, price_minor, currency)');
+  assert.ok(categoryInsert >= 0 && itemInsert > categoryInsert, 'same-business category must precede item');
+  assert.ok(proof.includes("category uuid := '81000000-0000-4000-8000-000000000031'"));
+  assert.match(proof, /VALUES \(category, business, 'Proof category'\)/);
+  assert.match(proof, /VALUES \(item, business, category, 'Proof item', 1000, 'ARS'\)/);
+  assert.match(proof, /INSERT INTO public.business_catalog_settings\(business_id, two_flavor_surcharge_minor\)/);
+  assert.doesNotMatch(proof, /INSERT INTO public\.\w+ VALUES/);
+});
+
+test('SOURCE: collision refusal and rollback both cover every exact fixture binding', () => {
+  const before = proof.slice(proof.indexOf('IF EXISTS (SELECT 1 FROM auth.users'), proof.indexOf('SELECT count(*) INTO receipt_count'));
+  const after = proof.slice(proof.lastIndexOf('IF EXISTS (SELECT 1 FROM auth.users'));
+  for (const fragment of [
+    'public.catalog_categories WHERE id = category OR business_id IN (business, other_business)',
+    'public.catalog_items WHERE id = item OR business_id IN (business, other_business)',
+    'public.catalog_option_groups WHERE id =', 'public.catalog_options WHERE id =',
+    'public.business_catalog_settings WHERE business_id IN (business, other_business)',
+    'public.business_storefronts WHERE business_id IN (business, other_business)',
+    'public.guest_receipts WHERE id = receipt OR business_id IN (business, other_business)',
+    'public.pickup_orders WHERE business_id IN (business, other_business)',
+    "request_id IN ('81000000-0000-4000-8000-000000000040', '81000000-0000-4000-8000-000000000041')",
+    "storage.objects WHERE bucket_id = 'guest-receipts' AND name =",
+  ]) {
+    assert.ok(before.includes(fragment), `prewrite collision: ${fragment}`);
+    assert.ok(after.includes(fragment), `postrollback residue: ${fragment}`);
+  }
+});
+
+test('SOURCE: receipt uniqueness probe cannot fail an unrelated actor FK first', () => {
+  const start = proof.indexOf('-- Direct trusted-writer probes');
+  const end = proof.indexOf("IF NOT denied THEN RAISE EXCEPTION 'receipt binding/uniqueness missing'", start);
+  assert.match(proof.slice(start, end), /VALUES \(buyer, business, '81000000-0000-4000-8000-000000000041', receipt, intent, quote, 'ARS', 1000\);\s*EXCEPTION WHEN unique_violation/);
+  assert.doesNotMatch(proof, /gen_random_uuid\(\)/);
+});
+
+test('SOURCE: owner identity mutation is denied as app role, not treated as an ownership-transfer feature', () => {
+  assert.match(proof, /SET LOCAL ROLE authenticated;\s*denied := false;\s*BEGIN\s*UPDATE public.businesses SET owner_id = stranger WHERE id = business;\s*EXCEPTION WHEN insufficient_privilege THEN denied := true;/);
+  assert.match(proof, /IF NOT denied THEN RAISE EXCEPTION 'owner identity UPDATE accepted'/);
+  assert.match(proof, /owner_id FROM public.businesses WHERE id = business\) IS DISTINCT FROM owner_actor/);
+  assert.ok(proof.includes('-- Operator-only synthetic ownership rewrite; not an app transfer feature.'));
+  assert.ok(proof.includes("IF visible_count <> 0 THEN RAISE EXCEPTION 'former owner still authorized'"));
+  assert.ok(proof.includes("IF visible_count <> 1 THEN RAISE EXCEPTION 'current confirmed owner not authorized'"));
+  for (const column of ['fulfillment_state', 'payment_state']) {
+    assert.ok(proof.includes(`UPDATE public.pickup_orders SET ${column} =`), `immutable ${column}`);
+  }
+});
+
 test('SOURCE: future engine packet is bounded and rollback-only, not an execution runner', () => {
   assert.ok(proof.startsWith('-- NOT EXECUTED.'));
   assert.match(proof, /SET LOCAL statement_timeout = '20s'/);

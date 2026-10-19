@@ -13,6 +13,7 @@ DECLARE
   other_business uuid := '81000000-0000-4000-8000-000000000011';
   receipt uuid := '81000000-0000-4000-8000-000000000020';
   item uuid := '81000000-0000-4000-8000-000000000030';
+  category uuid := '81000000-0000-4000-8000-000000000031';
   intent jsonb;
   quote jsonb;
   catalog jsonb;
@@ -52,29 +53,36 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM auth.users WHERE id IN (buyer, owner_actor, stranger))
      OR EXISTS (SELECT 1 FROM public.businesses WHERE id IN (business, other_business))
-     OR EXISTS (SELECT 1 FROM public.guest_receipts WHERE id = receipt)
-     OR EXISTS (SELECT 1 FROM public.catalog_items WHERE id = item)
-     OR EXISTS (SELECT 1 FROM public.catalog_option_groups WHERE id = '81000000-0000-4000-8000-000000000050')
-     OR EXISTS (SELECT 1 FROM public.catalog_options WHERE id = '81000000-0000-4000-8000-000000000051')
-     OR EXISTS (SELECT 1 FROM public.business_storefronts WHERE slug = 'proof-pickup-81000000') THEN
+     OR EXISTS (SELECT 1 FROM public.guest_receipts WHERE id = receipt OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_categories WHERE id = category OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_items WHERE id = item OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_option_groups WHERE id = '81000000-0000-4000-8000-000000000050' OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_options WHERE id = '81000000-0000-4000-8000-000000000051' OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.business_catalog_settings WHERE business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.business_storefronts WHERE business_id IN (business, other_business) OR slug = 'proof-pickup-81000000')
+     OR EXISTS (SELECT 1 FROM public.pickup_orders WHERE business_id IN (business, other_business)
+       OR request_id IN ('81000000-0000-4000-8000-000000000040', '81000000-0000-4000-8000-000000000041'))
+     OR EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'guest-receipts' AND name = business::text || '/' || buyer::text || '/' || receipt::text) THEN
     RAISE EXCEPTION 'fixture collision; no adoption or cleanup allowed';
   END IF;
   SELECT count(*) INTO receipt_count FROM public.guest_receipts;
   SELECT count(*) INTO order_count FROM public.pickup_orders;
   SELECT count(*) INTO object_count FROM storage.objects WHERE bucket_id = 'guest-receipts';
   BEGIN
-    INSERT INTO auth.users(id, aud, role, email, email_confirmed_at, is_anonymous,
+    INSERT INTO auth.users(id, aud, role, email, email_confirmed_at, is_anonymous, is_sso_user,
       raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
     VALUES
-      (buyer, 'authenticated', 'authenticated', NULL, NULL, true, '{}', '{}', now(), now()),
-      (owner_actor, 'authenticated', 'authenticated', 'owner-81000000@fixture.invalid', now(), false, '{}', '{}', now(), now()),
-      (stranger, 'authenticated', 'authenticated', 'contact@fixture.invalid', now(), false, '{}', '{}', now(), now());
+      (buyer, 'authenticated', 'authenticated', NULL, NULL, true, false, '{}', '{}', now(), now()),
+      (owner_actor, 'authenticated', 'authenticated', 'owner-81000000@fixture.invalid', now(), false, false, '{}', '{}', now(), now()),
+      (stranger, 'authenticated', 'authenticated', 'contact@fixture.invalid', now(), false, false, '{}', '{}', now(), now());
     INSERT INTO public.businesses(id, owner_id, name)
       VALUES (business, owner_actor, 'Proof only'), (other_business, stranger, 'Other proof only');
     INSERT INTO public.business_storefronts(business_id, slug, display_name, is_published)
       VALUES (business, 'proof-pickup-81000000', 'Proof only', true);
-    INSERT INTO public.catalog_items(id, business_id, name, price_minor, currency)
-      VALUES (item, business, 'Proof item', 1000, 'ARS');
+    INSERT INTO public.catalog_categories(id, business_id, name)
+      VALUES (category, business, 'Proof category');
+    INSERT INTO public.catalog_items(id, business_id, category_id, name, price_minor, currency)
+      VALUES (item, business, category, 'Proof item', 1000, 'ARS');
     INSERT INTO public.catalog_option_groups(id, business_id, item_id, name, selection_mode, min_select, max_select)
       VALUES ('81000000-0000-4000-8000-000000000050', business, item, 'Optional', 'distinct', 0, 1);
     INSERT INTO public.catalog_options(id, business_id, group_id, name, price_delta_minor)
@@ -101,14 +109,14 @@ BEGIN
     denied := false;
     BEGIN
       INSERT INTO public.pickup_orders(actor_id, business_id, request_id, receipt_id, intent, quote, currency, total_minor)
-        VALUES (stranger, business, gen_random_uuid(), receipt, intent, quote, 'ARS', 1000);
+        VALUES (stranger, business, '81000000-0000-4000-8000-000000000041', receipt, intent, quote, 'ARS', 1000);
     EXCEPTION WHEN foreign_key_violation THEN denied := true;
     END;
     IF NOT denied THEN RAISE EXCEPTION 'composite actor/business receipt FK missing'; END IF;
     denied := false;
     BEGIN
       INSERT INTO public.pickup_orders(actor_id, business_id, request_id, receipt_id, intent, quote, currency, total_minor)
-        VALUES (buyer, other_business, gen_random_uuid(), receipt, intent, quote, 'ARS', 1000);
+        VALUES (buyer, other_business, '81000000-0000-4000-8000-000000000041', receipt, intent, quote, 'ARS', 1000);
     EXCEPTION WHEN foreign_key_violation THEN denied := true;
     END;
     IF NOT denied THEN RAISE EXCEPTION 'cross-business receipt FK missing'; END IF;
@@ -181,7 +189,7 @@ BEGIN
           WHEN 'price' THEN UPDATE public.catalog_items SET price_minor = 1001 WHERE id = item;
           WHEN 'currency' THEN UPDATE public.catalog_items SET currency = 'USD' WHERE id = item;
           WHEN 'availability' THEN UPDATE public.catalog_items SET is_available = false WHERE id = item;
-          WHEN 'settings' THEN INSERT INTO public.business_catalog_settings VALUES (business, 1);
+          WHEN 'settings' THEN INSERT INTO public.business_catalog_settings(business_id, two_flavor_surcharge_minor) VALUES (business, 1);
           WHEN 'group_name' THEN UPDATE public.catalog_option_groups SET name = 'Changed' WHERE business_id = business;
           WHEN 'group_bounds' THEN UPDATE public.catalog_option_groups SET min_select = 1 WHERE business_id = business;
           WHEN 'option_name' THEN UPDATE public.catalog_options SET name = 'Changed' WHERE business_id = business;
@@ -193,6 +201,7 @@ BEGIN
         RESET ROLE;
         IF result->>'code' IS DISTINCT FROM 'catalog_changed' THEN RAISE EXCEPTION 'fence: %', scenario; END IF;
         IF (SELECT count(*) FROM public.pickup_orders) <> order_count
+           OR (SELECT count(*) FROM public.guest_receipts) <> receipt_count + 1
            OR (SELECT to_jsonb(r) FROM public.guest_receipts r WHERE id = receipt) IS DISTINCT FROM receipts_before
            OR (SELECT count(*) FROM storage.objects WHERE bucket_id = 'guest-receipts') <> object_count THEN
           RAISE EXCEPTION 'fence changed durable rows: %', scenario;
@@ -206,6 +215,12 @@ BEGIN
     result := public.finalize_pickup_order(buyer, business, intent, quote);
     RESET ROLE;
     IF result->>'code' IS DISTINCT FROM 'unavailable' THEN RAISE EXCEPTION 'publication fence'; END IF;
+    IF (SELECT count(*) FROM public.pickup_orders) <> order_count
+       OR (SELECT count(*) FROM public.guest_receipts) <> receipt_count + 1
+       OR (SELECT to_jsonb(r) FROM public.guest_receipts r WHERE id = receipt) IS DISTINCT FROM receipts_before
+       OR (SELECT count(*) FROM storage.objects WHERE bucket_id = 'guest-receipts') <> object_count THEN
+      RAISE EXCEPTION 'publication rejection changed rows/receipt/counters';
+    END IF;
     UPDATE public.business_storefronts SET is_published = true WHERE business_id = business;
     SET LOCAL ROLE service_role;
     created := public.finalize_pickup_order(buyer, business, intent, quote);
@@ -217,11 +232,12 @@ BEGIN
     END IF;
     orders_before := created->'order';
     -- Direct trusted-writer probes establish durable constraints, not just RPC locks.
+    -- Keep actor/business valid: isolate receipt uniqueness from the composite FK.
     SET LOCAL ROLE service_role;
     denied := false;
     BEGIN
       INSERT INTO public.pickup_orders(actor_id, business_id, request_id, receipt_id, intent, quote, currency, total_minor)
-        VALUES (stranger, business, gen_random_uuid(), receipt, intent, quote, 'ARS', 1000);
+        VALUES (buyer, business, '81000000-0000-4000-8000-000000000041', receipt, intent, quote, 'ARS', 1000);
     EXCEPTION WHEN unique_violation THEN denied := true;
     END;
     IF NOT denied THEN RAISE EXCEPTION 'receipt binding/uniqueness missing'; END IF;
@@ -289,6 +305,23 @@ BEGIN
     RESET ROLE;
     IF visible_count <> 0 THEN RAISE EXCEPTION 'deleted owner denied'; END IF;
     UPDATE auth.users SET deleted_at = NULL WHERE id = owner_actor;
+    -- Existing app privileges allow name edits, never owner identity mutation.
+    -- Do not model an operator-only rewrite as a supported ownership transfer.
+    SET LOCAL ROLE authenticated;
+    denied := false;
+    BEGIN
+      UPDATE public.businesses SET owner_id = stranger WHERE id = business;
+    EXCEPTION WHEN insufficient_privilege THEN denied := true;
+    END;
+    IF NOT denied THEN RAISE EXCEPTION 'owner identity UPDATE accepted'; END IF;
+    SELECT count(*) INTO visible_count FROM public.pickup_orders WHERE business_id = business;
+    RESET ROLE;
+    IF visible_count <> 1
+       OR (SELECT owner_id FROM public.businesses WHERE id = business) IS DISTINCT FROM owner_actor THEN
+      RAISE EXCEPTION 'owner identity denial changed authority';
+    END IF;
+    -- Operator-only synthetic ownership rewrite; not an app transfer feature.
+    -- Metadata has no business trigger prohibiting an operator's FK-valid rewrite.
     UPDATE public.businesses SET owner_id = stranger WHERE id = business;
     SET LOCAL ROLE authenticated;
     SELECT count(*) INTO visible_count FROM public.pickup_orders WHERE business_id = business;
@@ -309,6 +342,18 @@ BEGIN
       EXCEPTION WHEN insufficient_privilege THEN denied := true;
       END;
       IF NOT denied THEN RAISE EXCEPTION 'immutable quote UPDATE accepted'; END IF;
+      denied := false;
+      BEGIN
+        UPDATE public.pickup_orders SET fulfillment_state = 'pendiente_de_pago' WHERE business_id = business;
+      EXCEPTION WHEN insufficient_privilege THEN denied := true;
+      END;
+      IF NOT denied THEN RAISE EXCEPTION 'fulfillment UPDATE accepted'; END IF;
+      denied := false;
+      BEGIN
+        UPDATE public.pickup_orders SET payment_state = 'pendiente' WHERE business_id = business;
+      EXCEPTION WHEN insufficient_privilege THEN denied := true;
+      END;
+      IF NOT denied THEN RAISE EXCEPTION 'payment UPDATE accepted'; END IF;
       denied := false;
       BEGIN
         DELETE FROM public.pickup_orders WHERE business_id = business;
@@ -337,7 +382,16 @@ BEGIN
   END;
   IF EXISTS (SELECT 1 FROM auth.users WHERE id IN (buyer, owner_actor, stranger))
      OR EXISTS (SELECT 1 FROM public.businesses WHERE id IN (business, other_business))
-     OR EXISTS (SELECT 1 FROM public.pickup_orders WHERE business_id = business)
+     OR EXISTS (SELECT 1 FROM public.guest_receipts WHERE id = receipt OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_categories WHERE id = category OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_items WHERE id = item OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_option_groups WHERE id = '81000000-0000-4000-8000-000000000050' OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.catalog_options WHERE id = '81000000-0000-4000-8000-000000000051' OR business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.business_catalog_settings WHERE business_id IN (business, other_business))
+     OR EXISTS (SELECT 1 FROM public.business_storefronts WHERE business_id IN (business, other_business) OR slug = 'proof-pickup-81000000')
+     OR EXISTS (SELECT 1 FROM public.pickup_orders WHERE business_id IN (business, other_business)
+       OR request_id IN ('81000000-0000-4000-8000-000000000040', '81000000-0000-4000-8000-000000000041'))
+     OR EXISTS (SELECT 1 FROM storage.objects WHERE bucket_id = 'guest-receipts' AND name = business::text || '/' || buyer::text || '/' || receipt::text)
      OR (SELECT count(*) FROM public.guest_receipts) <> receipt_count
      OR (SELECT count(*) FROM public.pickup_orders) <> order_count
      OR (SELECT count(*) FROM storage.objects WHERE bucket_id = 'guest-receipts') <> object_count THEN
