@@ -5,6 +5,7 @@ import { normalizePickupIntent, quotePickupOrder } from '../app/lib/order-quote.
 
 // SOURCE checks, not a PostgreSQL parser, permissions test or concurrency simulator.
 const migration = readFileSync(new URL('../../../supabase/migrations/20261002120000_mvp_pickup_orders.sql', import.meta.url), 'utf8');
+const proof = readFileSync(new URL('../../../supabase/tests/database/mvp_pickup_orders.remote.sql', import.meta.url), 'utf8');
 const sql = migration.replace(/--[^\n]*/g, '');
 const id = n => `81000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -75,3 +76,36 @@ test('behavior: future SQL fixture agrees with existing trusted Node version-1 q
   assert.equal(Object.hasOwn(normalized.intent, 'snapshotFingerprint'), false);
 });
 
+test('SOURCE: effective RPC EXECUTE assertions distinguish ACL denial from downstream 42501 errors', () => {
+  const proofSql = proof.replace(/--[^\n]*/g, '');
+  const firstInvocation = proofSql.indexOf('catalog := public.pickup_order_catalog');
+  for (const signature of ['public.pickup_order_catalog(uuid,text)', 'public.finalize_pickup_order(uuid,uuid,jsonb,jsonb)']) {
+    for (const [role, allowed] of [['anon', false], ['authenticated', false], ['service_role', true]]) {
+      const assertion = `IF has_function_privilege('${role}', '${signature}', 'EXECUTE') IS DISTINCT FROM ${allowed} THEN`;
+      const position = proofSql.indexOf(assertion);
+      assert.ok(position >= 0, `missing effective EXECUTE assertion: ${role}/${signature}=${allowed}`);
+      assert.ok(position < firstInvocation, 'effective ACL assertion must precede function invocation');
+      assert.match(proofSql.slice(position + assertion.length), /^\s*RAISE EXCEPTION '[^']+';\s*END IF;/);
+    }
+  }
+  assert.equal((proofSql.match(/has_function_privilege\(/g) || []).length, 6);
+  assert.doesNotMatch(proofSql, /has_function_privilege\(\s*'public'/i);
+  // Invocation 42501 probes remain supplemental: INVOKER table reads can also
+  // raise that SQLSTATE even when function EXECUTE was accidentally exposed.
+  for (const call of ['PERFORM public.finalize_pickup_order(buyer, business, intent, quote);',
+    "PERFORM public.pickup_order_catalog(business, 'proof-pickup-81000000');"]) {
+    const position = proofSql.indexOf(call);
+    assert.ok(position >= 0);
+    assert.match(proofSql.slice(position + call.length), /^\s*EXCEPTION WHEN insufficient_privilege THEN denied := true;/);
+  }
+});
+
+test('SOURCE: future engine packet is bounded and rollback-only, not an execution runner', () => {
+  assert.ok(proof.startsWith('-- NOT EXECUTED.'));
+  assert.match(proof, /SET LOCAL statement_timeout = '20s'/);
+  assert.match(proof, /fixture collision/);
+  assert.match(proof, /RAISE SQLSTATE 'QW001'/);
+  assert.match(proof, /rollback residue/);
+  assert.ok(proof.trimEnd().endsWith('ROLLBACK;'));
+  assert.doesNotMatch(proof, /\bCOMMIT\b|TRUNCATE|DROP\s|CREATE\s+(?:FUNCTION|EXTENSION)/i);
+});

@@ -79,3 +79,169 @@ FORCE RLS, and direct service INSERT can bypass Node/finalizer validation. Never
 expose service credentials or either RPC to a browser. Migration owner/operator
 can of course alter data; immutability describes application role capabilities.
 
+## Future rollback permission/contract proof — NOT EXECUTED
+
+`supabase/tests/database/mvp_pickup_orders.remote.sql` is an executable operator
+packet, with20s statement/3s lock limits and an unconditional fixture-subtransaction
+rollback followed by residue assertions and outer ROLLBACK. Unexpected errors also
+abort/roll back. Collision checks precede writes; never adopt existing fixture IDs.
+No Storage object is uploaded; metadata fixture alone does not prove original GET.
+Global counter comparisons require an isolated/quiescent reviewed target window.
+
+Auth IDs810…001–003, businesses810…010/011, receipt810…020, item810…030,
+attempt810…040/041, optional group810…050 and option810…051 are exact in SQL.
+Future scope includes only those fixtures, their Auth timestamps, storefront,
+optional options/settings and rollback. No broad deletion or fixture cleanup API.
+The packet checks browser RPC/INSERT denials, unchanged receipt/row/Storage
+counters, FK mismatch, NULL key, receipt DELETE restriction, single-currency
+rejection, name/price/currency/availability/default/group/option fingerprint
+changes, unpublished rejection, creation, replay before reprice/publication,
+conflicting intent, reused receipt, buyer/confirmed-owner versus same-email
+stranger, currently unconfirmed/deleted owner and all-role UPDATE denials.
+These are **authored assertions**, not observed engine PASS results.
+
+The packet also probes cross-business FK rejection, anon SELECT, all-role order
+DELETE denial and owner reassignment. T4c must additionally prove immediate unique
+constraints under races, full original receipt GET byte/metadata preservation with
+real staging, and HTTP rejection cart/contact preservation. Validate ACLs including inherited/default
+and column privileges; do not infer effective denial from these source greps.
+
+## Two-session fresh-winner recipe — NOT EXECUTED
+
+This deliberately requires a separately reviewed T4c setup/cleanup transaction:
+committed fixtures and a committed winner are necessary to prove fresh visibility.
+It cannot be honestly labelled an entirely rollback-only race. No automation in
+this packet runs it, reads credentials or accepts/reuses an old consent marker.
+
+Proposed exact race namespace uses820 instead of810 in every SQL fixture UUID,
+slug `proof-pickup-82000000`, and owner email `owner-82000000@fixture.invalid`.
+Review/adopt a new setup file in T4c before execution: copy only the explicit
+fixture INSERTs from the rollback packet, add a second same-actor/business receipt
+820…021 with its exact triple path, and collision-check every ID/slug before
+COMMIT. Never replay the whole historical migration chain or this proof as setup.
+Use real newly staged receipt objects instead when proving HTTP/GET, under a
+separate exact Storage fixture grant. Freeze and record normalized intent I and
+Node quote Q produced from this fixture, using existing `normalizePickupIntent`
+and `quotePickupOrder`. Both sessions receive identical I/Q JSON in memory, not
+private config files. Those reviewed literal JSON values are T4c packet inputs.
+
+For each scenario use a fresh reviewed attempt (820…040 then041 then042 then043)
+and receipt pair; reset only owned orders between scenarios with exact captured
+order ID + actor + business + request + receipt predicates. Record before/after
+order rows, receipt metadata JSON, original receipt bytes/hashes and owned counts.
+
+**Session A** (operator connection with permission to SET ROLE):
+
+```sql
+BEGIN ISOLATION LEVEL READ COMMITTED;
+SET LOCAL statement_timeout = '20s';
+SET LOCAL lock_timeout = '3s';
+SET LOCAL ROLE service_role;
+-- Substitute only the independently reviewed I/Q literals, not client quote data.
+SELECT public.finalize_pickup_order(
+  '82000000-0000-4000-8000-000000000001',
+  '82000000-0000-4000-8000-000000000010', :'I'::jsonb, :'Q'::jsonb);
+-- Assert created and retain exact returned order, DO NOT commit yet.
+```
+
+**Session B**, start while A remains open (separate connection, not pooled into A):
+
+```sql
+BEGIN ISOLATION LEVEL READ COMMITTED;
+SET LOCAL statement_timeout = '20s';
+SET LOCAL lock_timeout = '3s';
+SET LOCAL ROLE service_role;
+SELECT public.finalize_pickup_order(
+  '82000000-0000-4000-8000-000000000001',
+  '82000000-0000-4000-8000-000000000010', :'I_B'::jsonb, :'Q_B'::jsonb);
+-- Must block before A completes; observer records pg_blocking_pids(B_pid).
+-- Coordinate A's completion inside the3s lock budget; no timeout retries.
+```
+
+Then A executes COMMIT (or ROLLBACK in the rollback-control case). B must return
+the exact outcome below; compare returned order ID and complete immutable JSON,
+not just non-error status. B ROLLBACK after recording. Observer uses a fresh
+READ COMMITTED SELECT to assert the durable counts and unchanged receipts/bytes.
+
+| Case | B payload / A completion | Required B outcome / durable orders |
+| --- | --- | --- |
+| Same key, same receipt | identical I; Q_B=NULL; A COMMIT | replayed, exact A order /1 |
+| Same key, different receipt | I_B.receiptId=820…021; A COMMIT | idempotency_conflict /1; receipt021 unchanged |
+| Different key, same receipt | I_B.requestId=next unused UUID; A COMMIT | receipt_used /1 |
+| Same key, same receipt | identical I/Q; A ROLLBACK | created; B ROLLBACK leaves0 |
+
+Additional race controls: reverse which session wins; A publishes/reprices only
+after its order, then B still replays; a direct trusted INSERT without advisory
+locks wins before finalizer INSERT, exercising the unique_violation fresh-read
+branch. The last case requires a reviewed breakpoint/barrier harness in T4c;
+a sequential call cannot prove that exceptional branch. Repeatable-read caller
+must raise25001 with all rows/receipts/counters unchanged. Unexpected SQLSTATE,
+NULL order, wrong ID, timeout or invisible-winner result fails that case; stop,
+retain evidence and do not auto-retry.
+
+Cleanup is a NEW reviewed operator-only packet, exact captured order IDs and
+fixture ownership predicates, order first, options/groups/settings/items/
+storefront/receipts/business then exact Auth IDs. Check residue after cleanup.
+Do not grant application DELETE, disable FK/RLS, cascade unrelated data, reset,
+or use an unbounded prefix deletion. Incomplete cleanup must be reported, not
+hidden. No race/atomicity/security certification is claimed by this recipe.
+
+## Review slices and evidence
+
+Original packet slices before the P2 correction: migration+source-contract tests
+(295 lines), rollback-engine packet+this transaction/race document (544 lines).
+The second cohesive overage
+keeps executable assertions, authorization limits and two-session protocol
+reviewable together rather than compressing SQL or omitting negative controls.
+Existing shared CLI/helpers were not changed: differential CLI testing is N/A.
+
+Official references consulted read-only: Supabase changelog and database-functions
+security/revoke docs; PostgreSQL transaction isolation and function volatility
+(snapshot-per-statement versus STABLE snapshot) docs. Source checks are explicitly
+not a SQL parser, a substitute database, an ACL audit or a concurrency proof.
+
+Observed T4b foreground checks (full stdout/stderr retained in tool transcript):
+- `node --experimental-strip-types --test apps/web/tests/order-sql-*.test.mjs`:
+  exit0,5/5 on final source (268ms); four SOURCE lints and one existing-Node fixture check.
+- `node --experimental-strip-types --test apps/web/tests/*.test.*`: timed out at
+  30s, no complete suite result; before timeout the existing product-photo-normalizer
+  test `admits at most two concurrent jobs and releases a slot after failures`
+  reported failure. No timeout retry and no unrelated-file repair. The failed/
+  timed-out full-suite result remains unchanged; the user explicitly deferred
+  further photo/full-suite reruns in task log L99, not converted them to PASS.
+- `pnpm --filter @qwerty/web exec tsc --noEmit --incremental false`: exit0, no output.
+- `pnpm --filter @qwerty/web lint`: exit0,62files; existing `noImgElement` warning
+  at `app/store/storefront-client.tsx:49`. Node retained MODULE_TYPELESS_PACKAGE_JSON.
+- `git diff --check`: exit0 (tracked-diff check; new files are still untracked).
+
+No meaningful engine RED/GREEN is available without an authorized engine;
+static checks are not engine behavior proof. No new production JavaScript behavior
+was implemented; the executable Node fixture check exercises the existing T4a
+normalizer/quote only. Full-suite validation remains incomplete and explicitly
+deferred under L99; T4b is not marked complete, deployed or independently approved here.
+
+### Independent P2 source-proof correction — SQL still NOT EXECUTED
+
+Independent review `mvfn50h0-12-rqtn` identified a source-derived false-positive
+path, not an executed SQL reproduction or demonstrated production bypass:
+`insufficient_privilege` (42501) from an INVOKER call may come from downstream
+orders/receipt SELECT, even when function EXECUTE was accidentally exposed.
+The rollback packet now checks effective `has_function_privilege` EXECUTE for
+both `public.pickup_order_catalog(uuid,text)` and
+`public.finalize_pickup_order(uuid,uuid,jsonb,jsonb)` before fixtures or calls:
+`anon` and `authenticated` must be denied; `service_role` must be allowed.
+These checks naturally include inherited-role and PUBLIC grants; PUBLIC is not
+passed as an actual role name. Existing invocation-denial probes remain as
+supplements, never the sole evidence for the EXECUTE boundary.
+
+Only `node --experimental-strip-types --test apps/web/tests/order-sql-contract.test.mjs`
+was run for this correction: static SOURCE RED exit1 (5passed/1failed,253ms),
+`AssertionError [ERR_ASSERTION]: missing effective EXECUTE assertion: anon/public.pickup_order_catalog(uuid,text)=false`;
+then focused GREEN exit0 (6/6,164ms). The new regression requires all six effective
+role/signature/expected-result assertions with raising failure branches before
+invocation, rejects PUBLIC-as-role checks, and retains supplemental 42501 probes.
+Stdout/stderr are retained in the tool transcript, with the existing
+MODULE_TYPELESS_PACKAGE_JSON warning; no separate output-file path was returned.
+No SQL engine, full suite, photo test, typecheck or lint was run in this correction.
+Self-review was limited to this P2: S6 proof distinguishes effective ACLs from
+underlying table denials; S8 remains source-only with no backend or fixture action.
