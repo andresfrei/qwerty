@@ -55,3 +55,13 @@ The corrected artifact SHA256 `d6aa6a2cf539dfefd2012e5142acb0b39ece4fc28149e40a9
 
 
 Human email confirmation, SMTP/template/Site URL readiness, real hosted RLS behavior and actual buyer ordering acceptance remain separate pending work. No provider configuration, live project data, signup email, migration, dependency, service, deployment or push was changed by this implementation. Existing untracked Auth prerequisites remain in this working tree; no clean committed-app build is claimed.
+
+## Source delivery and remaining proof
+
+Boundary `047358271325f4d7e1c9d917d1eb5a7cbbff6852` (396 added lines) and UI `829908975c559d9236e257135ad5861706ea7379` (367 added/11 removed) preserve all17 reviewed code/test hashes. Static import readback:29 source files,39 relative/alias/literal edges, zero missing. Existing `app/auth/access-validation.ts` and `app/lib/supabase/server.ts` are protected untracked prerequisites, not adopted by these commits. Computed loader paths and clean committed-app runtime are not established by AST checks.
+
+The native assessment remains unknown/unassessable because untracked files lack an explicit declaration; its high-risk plan requires self-verification and an independent verifier, satisfied by the recorded source checks and independent source review/limited cookie recheck—not native approval. An optional parent grep of a nonexistent product-photo.ts path failed; subsequent actual client graph readback found only React external imports, with no code changes or build claim.
+
+Human next step in the existing working environment: open `https://qwerty.localhost/auth/signup`, enter your own credentials there, confirm the actual email, then use `/owner` to create the first business and unpublished draft. Manage the catalog and publish; the editor supplies `/store/<your-slug>`. If mail/redirect/persistence fails, report the visible step without credentials; do not blindly repeat or bypass confirmation. No real account/store has been created by this source/mock proof.
+
+Risk: item2 (fresh identity and cookie boundary); item3 (existing owner-page/shared catalog composition). Fullsuite/photo/build remain deferred; no push or provider changes.
