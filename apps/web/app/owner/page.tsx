@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { accessRedirect } from "@/app/auth/access-validation";
 import { createClient } from "@/app/lib/supabase/server";
+import FirstStore from "./first-store-client";
 type Business = {
   id: string;
   name: string;
@@ -20,8 +21,13 @@ export default async function OwnerPage() {
   const { data, error } = await supabase
     .from("businesses")
     .select("id,name")
-    .order("name");
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
   const businesses = (data ?? []) as Business[];
+  const firstBusiness = businesses[0] ?? null;
+  const storefrontResult = !error && firstBusiness
+    ? await supabase.from("business_storefronts").select("slug,display_name,is_published").eq("business_id", firstBusiness.id).maybeSingle()
+    : { data: null, error: null };
   return (
     <main className="min-h-screen px-5 py-6 sm:px-8 sm:py-8">
       <header className="mx-auto flex max-w-3xl items-center justify-between gap-4">
@@ -53,6 +59,8 @@ export default async function OwnerPage() {
         >
           Editar catálogo
         </Link>
+        {!error && !storefrontResult.error && <FirstStore business={firstBusiness} storefront={storefrontResult.data} />}
+        {storefrontResult.error && <p role="alert">No pudimos consultar tu vidriera. Actualizá antes de continuar.</p>}
         <div className="mt-8 rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[0_1.5rem_3rem_rgb(40_47_37_/_8%)] sm:p-6">
           <h2 className="text-lg font-[750] tracking-[-0.04em]">Negocios asociados</h2>
           {error ? (

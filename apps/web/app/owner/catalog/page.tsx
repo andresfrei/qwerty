@@ -6,6 +6,7 @@ import type { Option, OptionGroup } from "@/app/lib/catalog-selection";
 import { createClient } from "@/app/lib/supabase/server";
 import { describeGroupBehavior } from "./catalog-preview";
 import { PhotoEditor } from "./photo-editor-client";
+import CatalogEditor from "./catalog-editor-client";
 
 type Business = { id: string; name: string };
 type Storefront = { slug: string; display_name: string; is_published: boolean };
@@ -120,6 +121,7 @@ export default async function OwnerCatalogPage() {
         ) : (
           <div className="mt-8 grid gap-6">
             <Link className="text-sm font-extrabold text-[var(--olive)] underline" href={`/owner/orders?businessId=${business.id}`} prefetch={false}>Consultar pedidos</Link>
+            <CatalogEditor categories={categories} items={items} groups={optionGroups} options={options} storefront={storefront} surchargeMinor={surchargeMinor} />
             <div className={card}>
               <h2 className="text-lg font-[750] tracking-[-0.04em]">Vidriera</h2>
               {storefront ? (
