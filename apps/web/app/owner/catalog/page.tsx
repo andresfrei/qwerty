@@ -119,6 +119,7 @@ export default async function OwnerCatalogPage() {
           <p className="mt-8 text-sm leading-6 text-[var(--muted)]">Todavía no hay un negocio asociado a esta cuenta.</p>
         ) : (
           <div className="mt-8 grid gap-6">
+            <Link className="text-sm font-extrabold text-[var(--olive)] underline" href={`/owner/orders?businessId=${business.id}`} prefetch={false}>Consultar pedidos</Link>
             <div className={card}>
               <h2 className="text-lg font-[750] tracking-[-0.04em]">Vidriera</h2>
               {storefront ? (
