@@ -85,6 +85,22 @@ test("failed actual upload preserves cart contact and file; duplicate clicks do 
   } finally { globalThis.fetch = oldFetch; }
 });
 
+test("confirmation requires explicit ready session, staged receipt and single-flight bound success", async () => {
+  const oldFetch = globalThis.fetch, calls = []; let finish;
+  globalThis.fetch = async (url, init) => { calls.push([url,init]); return url === "/api/checkout/session" ? Response.json({ready:true}) : url.startsWith('/api/checkout/receipts?') ? Response.json({receiptId},{status:201}) : new Promise(resolve=>{finish=resolve;}); };
+  try {
+    const h = harness();
+    assert.ok(h.find('order-confirm'), 'actual confirmation action exists');
+    await h.find('order-confirm').props.onClick(); assert.equal(calls.length,0);
+    await h.session(); h.choose(new File(['original'],'receipt.pdf')); await h.upload();
+    // Legacy fixtures intentionally have non-UUID business/item IDs: submission
+    // must refuse an invalid technical reference instead of claiming durability.
+    await h.find('order-confirm').props.onClick();
+    assert.equal(calls.length,2); assert.ok(text(h.render()).includes('referencia'));
+    assert.equal(h.saved().items.length,1); assert.equal(finish,undefined);
+  } finally { globalThis.fetch=oldFetch; }
+});
+
 test("receipt readiness creates no implicit Auth and session loss requires deliberate reprepare without losing drafts", async () => {
   const oldFetch = globalThis.fetch, calls = []; let uploads = 0;
   globalThis.fetch = async (url, init) => { calls.push([url, init]); return url === "/api/checkout/session" ? Response.json({ ready: true }) : ++uploads === 1 ? Response.json({ error: "Session required" }, { status: 401 }) : Response.json({ receiptId }, { status: 201 }); };

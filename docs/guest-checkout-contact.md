@@ -29,7 +29,7 @@ continuation and suppress the aggregate total. Removed options/groups can be
 explicitly removed. Changed prices/currencies require explicit acceptance of the
 new unit price; incomplete selections can be corrected. Existing selection data
 is retained on reconciliation failure rather than silently dropped. Prices remain
-orientative: future order submission must independently validate them server-side.
+orientative: the existing private order API independently validates them server-side.
 
 ## Contact and session request
 
@@ -53,7 +53,19 @@ order. The UI explicitly says “Todavía no se envió ningún pedido” and off
 pretend order action. This is the historical T2b checkpoint; subsequent private
 storage (T3b) and the attachment/retry UI (T3c) are documented in
 [private receipt staging](guest-checkout-receipts.md). Atomic order creation,
-tracking and account linking are still separate later work.
+and tracking are now connected by [T4e pickup UI](pickup-order-ui.md); optional
+account linking remains later work. Preparation and upload alone still never
+submit an order or clear a cart.
+
+T4e correction handling distinguishes exact prewrite API codes from uncertain
+outcomes. An allowlisted rejection permits correcting contact/options/prices and
+explicitly confirming the revised intent with the **same request ID**, including
+after reload. Unknown/malformed/conflicting outcomes retain the frozen identity;
+no new nonce or automatic POST is generated. Only an optional technical correction
+code joins the saved reference; contact remains memory-only. Storage acquisition,
+reads and writes are guarded. Denied storage before confirmation sends nothing;
+cleanup failure after confirmation preserves the authoritative order and cart with
+visible feedback, rather than turning success into an unhandled rejection.
 
 ## Verification scope
 
