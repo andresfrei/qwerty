@@ -23,6 +23,15 @@ const config = {
     return [
       { source: "/owner/:path*", headers: privateHeaders },
       { source: "/auth/:path*", headers: privateHeaders },
+      // Native same-origin POSTs need an Origin; keep token/submit pages private.
+      ...["/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/update-password", "/owner"].map(
+        (source) => ({
+          source,
+          headers: privateHeaders.map((header) =>
+            header.key === "Referrer-Policy" ? { ...header, value: "same-origin" } : header,
+          ),
+        }),
+      ),
     ];
   },
 };
