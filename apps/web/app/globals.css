@@ -62,3 +62,62 @@ body {
   min-height: 100vh;
   background: var(--cream);
 }
+
+/* Additive feedback only; callers retain their palette, padding and typography. */
+.async-action-content {
+  display: inline-grid;
+  grid-template-columns: 1em auto;
+  align-items: center;
+  column-gap: 0.5em;
+  vertical-align: middle;
+}
+
+.async-action-label,
+.async-action-reserve {
+  grid-area: 1 / 2;
+}
+
+.async-action-reserve {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.async-action-spinner {
+  grid-area: 1 / 1;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: async-action-turn 0.8s linear infinite;
+}
+
+.async-action:focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 2px;
+}
+
+.async-action:disabled {
+  cursor: default;
+}
+
+.async-action-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes async-action-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .async-action-spinner {
+    animation: none;
+  }
+}
