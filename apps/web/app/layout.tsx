@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "@fontsource-variable/manrope";
 import "./globals.css";
+import { NativeFormFeedback } from "./components/async-action";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://qwapp.lat"),
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="es-AR">
-      <body>{children}</body>
+      <body>{children}<NativeFormFeedback /></body>
     </html>
   );
 }
