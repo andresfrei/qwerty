@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { AsyncActionButton } from "@/app/components/async-action-button";
 import type { Option, OptionGroup } from "../../lib/catalog-selection";
 import { catalogFormPayload, moneyText, sendOwnerMutation } from "./catalog-editor";
 
@@ -15,18 +16,26 @@ function Field({ name, label, value = "", numeric = false, money = false }: { na
 function Available({ value = true }: { value?: boolean }) {
   return <label className="text-sm">Disponibilidad<select className={input} name="isAvailable" defaultValue={String(value)}><option value="true">Disponible</option><option value="false">No disponible</option></select></label>;
 }
+const pendingLabels: Record<string, string> = {
+  create_category: "Creando categoría…", rename_category: "Guardando categoría…", reorder_category: "Guardando orden…",
+  create_product: "Creando producto…", update_product: "Guardando producto…",
+  create_option_group: "Creando grupo…", update_option_group: "Guardando grupo…",
+  create_option: "Creando opción…", update_option: "Guardando opción…",
+  set_two_flavor_surcharge: "Guardando recargo…",
+};
 const hidden = (name: string, value: string) => <input type="hidden" name={name} value={value} />;
 
 export default function CatalogEditor({ categories, items, groups, options, storefront, surchargeMinor }: Props) {
   const lock = useRef(false);
   const [state, setState] = useState<"idle" | "pending" | "saved" | "unknown">("idle");
   const [message, setMessage] = useState("");
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  const [pendingForm, setPendingForm] = useState<string | null>(null);
+  async function submit(event: FormEvent<HTMLFormElement>, title: string) {
     event.preventDefault();
     if (lock.current || state !== "idle") return;
     const payload = catalogFormPayload(new FormData(event.currentTarget));
     if (!payload) { setMessage("Revisá los datos: precios con hasta dos decimales, moneda ISO de tres letras y límites válidos."); return; }
-    lock.current = true; setState("pending"); setMessage("");
+    lock.current = true; setState("pending"); setPendingForm(title); setMessage("");
     const result = await sendOwnerMutation("/owner/catalog/actions", payload);
     if (result.kind === "saved") { setState("saved"); setMessage("Cambio guardado. Actualizá el catálogo para continuar."); }
     else if (result.kind === "unknown") { setState("unknown"); setMessage("No sabemos si se guardó. No repitas el envío: actualizá para consultar el estado."); }
@@ -35,9 +44,9 @@ export default function CatalogEditor({ categories, items, groups, options, stor
   }
   // One shared lock covers every form, including same-tick double clicks and unknown outcomes.
   function form(title: string, action: string, fields: ReactNode, save = "Guardar") {
-    return <form method="post" action="/owner/catalog/actions" onSubmit={submit} aria-label={title} className="grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
+    return <form method="post" action="/owner/catalog/actions" onSubmit={event => submit(event, title)} aria-label={title} className="grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--cream)] p-4">
       {hidden("action", action)}<h3 className="font-extrabold">{title}</h3>
-      <fieldset disabled={state !== "idle"} className="grid min-w-0 gap-3 sm:grid-cols-2">{fields}<button className={button} type="submit">{save}</button></fieldset>
+      <fieldset disabled={state !== "idle"} className="grid min-w-0 gap-3 sm:grid-cols-2">{fields}<AsyncActionButton className={button} type="submit" pending={state === "pending" && pendingForm === title} locked={state !== "idle"} pendingLabel={action === "set_published" ? (storefront?.is_published ? "Dejando de publicar…" : "Publicando tienda…") : pendingLabels[action]}>{save}</AsyncActionButton></fieldset>
     </form>;
   }
   function productFields(item?: Item) {

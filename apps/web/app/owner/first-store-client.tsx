@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, type FormEvent } from "react";
+import { AsyncActionButton } from "@/app/components/async-action-button";
 import type { FirstBusiness, DraftStorefront } from "./onboarding/owner-onboarding";
 import { sendOwnerMutation, suggestedSlug } from "./catalog/catalog-editor";
 
@@ -39,7 +40,7 @@ export default function FirstStore({ business: initialBusiness = null, storefron
           <label>Dirección de la tienda<input className={input} name="slug" maxLength={63} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={e => setSlug(e.target.value)} required /></label>
           <p className="break-all text-sm text-[var(--muted)]">/store/{slug || "tu-direccion"} · minúsculas, números y guiones. Podés editar la sugerencia.</p>
         </> : <label>Nombre del negocio<input className={input} name="name" maxLength={120} required /></label>}
-        <button id="first-store-submit" className="min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 font-extrabold disabled:opacity-50" type="submit">{pending ? "Guardando…" : business ? "Crear vidriera sin publicar" : "Crear negocio"}</button>
+        <AsyncActionButton id="first-store-submit" className="min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 font-extrabold disabled:opacity-50" type="submit" pending={pending} locked={unknown} pendingLabel={business ? "Creando vidriera…" : "Creando negocio…"}>{business ? "Crear vidriera sin publicar" : "Crear negocio"}</AsyncActionButton>
       </fieldset>
     </form>}
     {message && <p className="mt-3 text-sm" role="status">{message}</p>}
