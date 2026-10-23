@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
+import { AsyncActionButton } from "@/app/components/async-action-button";
 import { requestOrder, type OrderResponse } from "@/app/lib/pickup-order-client";
 import { formatMoney } from "@/app/lib/storefront";
 
@@ -28,7 +29,7 @@ export default function OrderQueueClient({ businessId }: { businessId: string })
     <a href="/owner/catalog" className="text-sm font-bold underline">Volver al catálogo</a>
     <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Pedidos del negocio</h1>
     <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted)]">Consulta de los últimos 100 pedidos visibles, más recientes primero. No es un historial completo. Los estados del pedido y del pago son independientes; esta cola es de solo lectura.</p>
-    <button id="queue-refresh" type="button" onClick={refresh} disabled={busy} className="mt-5 min-h-11 rounded-lg border border-[var(--line)] bg-[var(--lime)] px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50">Actualizar pedidos</button>
+    <AsyncActionButton id="queue-refresh" type="button" pending={busy} pendingLabel="Actualizando pedidos…" onClick={refresh} disabled={busy} className="mt-5 min-h-11 rounded-lg border border-[var(--line)] bg-[var(--lime)] px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50">Actualizar pedidos</AsyncActionButton>
     <section className="mt-6 space-y-5" aria-live="polite" aria-busy={busy}>
       {busy && <p>Cargando pedidos…</p>}
       {result?.status === "session" && <p>Necesitás una sesión autorizada. No iniciamos sesión automáticamente.</p>}

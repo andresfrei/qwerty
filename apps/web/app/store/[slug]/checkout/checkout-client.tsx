@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { AsyncActionButton } from "@/app/components/async-action-button";
 import { requestOrder, type OrderIntent, type OrderResponse } from "@/app/lib/pickup-order-client";
 import { clearSubmittedCartState, readAttemptState, saveAttempt, type AttemptReference } from "@/app/lib/pickup-attempt";
 import type { CheckoutCatalogRead } from "@/app/lib/checkout-catalog-reader";
@@ -38,6 +39,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
   const [attempt, setAttempt] = useState<AttemptReference | null>(null);
   const [orderResult, setOrderResult] = useState<OrderResponse | null>(null);
   const [orderBusy, setOrderBusy] = useState(false);
+  const [orderRecovering, setOrderRecovering] = useState(false);
   const [referenceError, setReferenceError] = useState(false);
   const [cleanupError, setCleanupError] = useState(false);
   const [referenceStateError, setReferenceStateError] = useState(false);
@@ -144,7 +146,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
 
   async function resolveOrder(reference: AttemptReference, intent?: OrderIntent) {
     if (orderInflight.current) return;
-    orderInflight.current = true; setOrderBusy(true);
+    orderInflight.current = true; setOrderBusy(true); setOrderRecovering(!intent);
     const token = generation.current;
     const snapshot = submitted.current;
     try {
@@ -247,7 +249,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
             {inspection.valid ? Object.entries(totals).map(([currency, total]) => <p key={currency}>Total orientativo: {formatMoney(total, currency)}</p>) : <p>Completá y revisá el carrito para ver el total.</p>}
             <p className="mt-2 text-xs font-normal leading-5">Los importes incluyen las opciones y el recargo configurado por dos sabores ({formatMoney(data.surchargeMinor, data.items[0]?.currency ?? "ARS")}). El servidor volverá a verificarlos al enviar un pedido.</p>
           </div>
-          <button disabled={frozen || orderBusy || busy || receiptBusy || !hydrated || !inspection.valid || status === "ready"} className="mt-5 min-h-12 w-full rounded-lg bg-[var(--lime)] px-4 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50" type="submit">{busy ? "Preparando…" : status === "ready" ? "Sesión preparada" : "Continuar como invitado"}</button>
+          <AsyncActionButton pending={busy} pendingLabel="Preparando…" disabled={frozen || orderBusy || busy || receiptBusy || !hydrated || !inspection.valid || status === "ready"} className="mt-5 min-h-12 w-full rounded-lg bg-[var(--lime)] px-4 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50" type="submit">{status === "ready" ? "Sesión preparada" : "Continuar como invitado"}</AsyncActionButton>
           <div aria-live="polite" aria-atomic="true" className="mt-4 text-sm leading-6">
             {status === "invalid" && <p>Revisá los datos de contacto y las opciones del carrito.</p>}
             {status === "error" && <p>No pudimos preparar la sesión. Tus datos y el carrito siguen acá; podés reintentar.</p>}
@@ -266,7 +268,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
               setReceiptResult(file && file.size > CHECKOUT_RECEIPT_MAX_BYTES ? { status: "too_large" } : { status: "idle" });
             }} />
             {receiptFile && <p id="receipt-selected-file" className="mt-2 break-all text-xs leading-5 text-[var(--muted)]">{receiptFile.name}</p>}
-            <button id="receipt-upload" type="button" disabled={frozen || orderBusy || busy || receiptBusy || status !== "ready" || !receiptFile || receiptFile.size === 0 || receiptFile.size > CHECKOUT_RECEIPT_MAX_BYTES || receiptResult.status === "staged"} className={`${action} mt-4 w-full`} onClick={handleReceiptUpload}>{receiptBusy ? "Adjuntando…" : receiptResult.status === "staged" ? "Comprobante adjuntado" : receiptResult.status === "idle" ? "Adjuntar comprobante" : "Volver a intentar"}</button>
+            <AsyncActionButton id="receipt-upload" type="button" pending={receiptBusy} pendingLabel="Adjuntando…" disabled={frozen || orderBusy || busy || receiptBusy || status !== "ready" || !receiptFile || receiptFile.size === 0 || receiptFile.size > CHECKOUT_RECEIPT_MAX_BYTES || receiptResult.status === "staged"} className={`${action} mt-4 w-full`} onClick={handleReceiptUpload}>{receiptResult.status === "staged" ? "Comprobante adjuntado" : receiptResult.status === "idle" ? "Adjuntar comprobante" : "Volver a intentar"}</AsyncActionButton>
             <div id="receipt-status" aria-live="polite" aria-atomic="true" className="mt-3 text-sm leading-6">
               {status !== "ready" && receiptResult.status !== "session" && <p>Primero completá tus datos y prepará la sesión para adjuntar el archivo.</p>}
               {receiptResult.status === "too_large" && <p>El archivo supera los 10 MiB. Elegí uno más pequeño; tus datos y el carrito siguen acá.</p>}
@@ -277,7 +279,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
           </section>
           <section className="mt-6 border-t border-[var(--line)] pt-5" aria-label="Confirmación del pedido" aria-busy={orderBusy}>
             {Object.keys(totals).length > 1 && <p role="alert" className="text-sm">Separá las compras por moneda. No convertimos importes; tu carrito se conserva.</p>}
-            <button id="order-confirm" type="button" className={`${action} mt-3 w-full bg-[var(--lime)]`} disabled={frozen || orderBusy || status !== "ready" || receiptResult.status !== "staged" || !inspection.valid || Object.keys(totals).length !== 1} onClick={confirmOrder}>Confirmar compra</button>
+            <AsyncActionButton id="order-confirm" type="button" pending={orderBusy && !orderRecovering} pendingLabel="Confirmando compra…" className={`${action} mt-3 w-full bg-[var(--lime)]`} disabled={frozen || orderBusy || status !== "ready" || receiptResult.status !== "staged" || !inspection.valid || Object.keys(totals).length !== 1} onClick={confirmOrder}>Confirmar compra</AsyncActionButton>
             <div aria-live="polite" className="mt-3 space-y-3 break-words text-sm leading-6">
               {referenceError && <p>No pudimos guardar una referencia segura. No enviamos el pedido; conservamos tus datos.</p>}
               {referenceStateError && <p>No pudimos guardar el estado de la referencia. Conservá esta página; al recargar podría requerir consultar el mismo intento.</p>}
@@ -285,7 +287,7 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
               {attempt?.correction && orderResult?.status !== "confirmed" && <p>El servidor indicó una corrección necesaria ({attempt.correction}). Revisá precio, opciones o contacto, prepará la sesión si hace falta y confirmá con la misma referencia. También podés consultar si ya existe un pedido.</p>}
               {orderBusy && <p>Consultando el pedido…</p>}
               {!attempt && <p>Todavía no se envió ningún pedido.</p>}
-              {attempt && orderResult?.status !== "confirmed" && <><p>{orderResult?.status === "session" ? "La sesión original es necesaria. No crearemos otra ni recuperaremos por correo." : attempt.correction ? "Conservamos el carrito y los datos para corregir este mismo intento; una consulta sin resultado no autoriza crear otra referencia." : orderResult?.status === "rejected" ? "El servidor rechazó el envío sin permitir correcciones seguras. Conservamos la referencia; consultá el mismo intento." : "El resultado aún no está confirmado. No vuelvas a enviar ni reemplaces el comprobante; consultá la misma referencia."}</p><button id="order-recover" type="button" className={action} disabled={orderBusy} onClick={() => { if (attempt) void resolveOrder(attempt); }}>Consultar intento</button><a className="block underline" href={`/store/${catalog.storefront.slug}/orders/recover`}>Recuperar desde este navegador</a></>}
+              {attempt && orderResult?.status !== "confirmed" && <><p>{orderResult?.status === "session" ? "La sesión original es necesaria. No crearemos otra ni recuperaremos por correo." : attempt.correction ? "Conservamos el carrito y los datos para corregir este mismo intento; una consulta sin resultado no autoriza crear otra referencia." : orderResult?.status === "rejected" ? "El servidor rechazó el envío sin permitir correcciones seguras. Conservamos la referencia; consultá el mismo intento." : "El resultado aún no está confirmado. No vuelvas a enviar ni reemplaces el comprobante; consultá la misma referencia."}</p><AsyncActionButton id="order-recover" type="button" pending={orderBusy && orderRecovering} pendingLabel="Consultando…" className={action} disabled={orderBusy} onClick={() => { if (attempt) void resolveOrder(attempt); }}>Consultar intento</AsyncActionButton><a className="block underline" href={`/store/${catalog.storefront.slug}/orders/recover`}>Recuperar desde este navegador</a></>}
               {orderResult?.status === "confirmed" && <><p>Pedido recibido. Estado del pedido: pendiente de pago. Pago: pendiente de verificación; el comprobante no confirma fondos.</p><a id="order-tracking" className="font-bold underline" href={`/store/${catalog.storefront.slug}/orders/${orderResult.order.id}`}>Ver seguimiento privado</a></>}
             </div>
           </section>

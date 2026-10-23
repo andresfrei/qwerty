@@ -3,6 +3,14 @@ import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 import * as React from 'react';
 const require=createRequire(import.meta.url);
+const buttonModule={exports:{}};
+const buttonSource=readFileSync(new URL('../app/components/async-action-button.tsx',import.meta.url),'utf8');
+new Function('require','module','exports',ts.transpileModule(buttonSource,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS}}).outputText)(require,buttonModule,buttonModule.exports);
+const {AsyncActionButton}=buttonModule.exports;
+const runtime=require('react/jsx-runtime');
+// Expand only the hook-free shared presentation, never domain components.
+const jsxRuntime=Object.fromEntries(Object.entries(runtime).map(([key,value])=>[key,
+ ['jsx','jsxs'].includes(key)?(type,props,...rest)=>type===AsyncActionButton?AsyncActionButton(props):value(type,props,...rest):value]));
 export const id='11111111-1111-4111-8111-111111111111', receiptId='22222222-2222-4222-8222-222222222222';
 export const item={id,business_id:id,category_id:id,name:'Agua ilustrativa',description:null,price_minor:100,currency:'ARS',is_available:true,sort_order:0};
 export const catalog={status:'ok',storefront:{business_id:id,slug:'tienda',display_name:'Tienda ilustrativa',is_published:true},categories:[{category:{id,business_id:id,name:'Carta',sort_order:0},items:[item]}],groups:[],options:[],surchargeMinor:0};
@@ -19,7 +27,7 @@ export function harness(path,props, map=new Map([['qwerty:cart:v1:'+id,JSON.stri
  const storage={getItem:k=>map.get(k)??null,setItem:(k,v)=>{map.set(k,v);writes.push([k,v]);}};
  const module={exports:{}};
  const storageScope={get localStorage(){if(storageControl.denied)throw new DOMException('Storage denied','SecurityError');return storage;}};
- new Function('require','module','exports','storageScope','with(storageScope){'+compiled+'}')(name=>name==='react'?hooks:name.startsWith('@/app/lib/')?require('../app/lib/'+name.slice(10)+'.ts'):require(name),module,module.exports,storageScope);
+ new Function('require','module','exports','storageScope','with(storageScope){'+compiled+'}')(name=>name==='react'?hooks:name==='react/jsx-runtime'?jsxRuntime:name==='@/app/components/async-action-button'?{AsyncActionButton}:name.startsWith('@/app/lib/')?require('../app/lib/'+name.slice(10)+'.ts'):require(name),module,module.exports,storageScope);
  const render=()=>{cursor=0;const tree=module.exports.default(props);while(effects.length)effects.shift()();return tree;};
  const find=id=>nodes(render()).find(n=>n.props?.id===id);
  render();render();

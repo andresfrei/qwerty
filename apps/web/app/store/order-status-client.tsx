@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
+import { AsyncActionButton } from "@/app/components/async-action-button";
 import { requestOrder, type OrderResponse } from "@/app/lib/pickup-order-client";
 import { readAttemptState, type AttemptReference } from "@/app/lib/pickup-attempt";
 import { formatMoney } from "@/app/lib/storefront";
@@ -48,6 +49,6 @@ export default function OrderStatusClient({ slug, id }: { slug: string; id?: str
       {result && !["confirmed", "session", "missing"].includes(result.status) && <p>No pudimos confirmar el resultado. Conservá la referencia y consultá más tarde; esto no demuestra que el pedido no exista.</p>}
       {order && <><h2 className="text-xl font-bold">Pedido recibido</h2><p className="break-all text-xs">Referencia: {order.id}</p><p>Pedido: pendiente de pago</p><p>Pago: pendiente de verificación. Un comprobante no confirma fondos.</p><p>{order.contact.name} · {order.contact.email} · {order.contact.telephone}</p><ul className="space-y-3">{order.lines.map(line => <li key={JSON.stringify(line)}>{line.quantity} × {line.name}<p className="text-sm">{line.selectionText}</p><p>{formatMoney(line.lineTotalMinor, order.currency)}</p></li>)}</ul><p className="font-bold">Total: {formatMoney(order.totalMinor, order.currency)}</p></>}
     </section>
-    <button id="order-refresh" type="button" disabled={busy || (!id && !reference)} onClick={refresh} className="mt-5 min-h-11 rounded-lg border border-[var(--line)] bg-[var(--lime)] px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50">Consultar estado</button>
+    <AsyncActionButton id="order-refresh" type="button" pending={busy} pendingLabel="Consultando…" disabled={busy || (!id && !reference)} onClick={refresh} className="mt-5 min-h-11 rounded-lg border border-[var(--line)] bg-[var(--lime)] px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50">Consultar estado</AsyncActionButton>
   </main>;
 }
