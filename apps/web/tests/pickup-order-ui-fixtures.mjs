@@ -23,14 +23,14 @@ export function harness(path,props, map=new Map([['qwerty:cart:v1:'+id,JSON.stri
  const compiled=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
  const slots=[],effects=[],writes=[];let cursor=0;
  const changed=(a,b)=>!a||a.length!==b.length||a.some((v,i)=>v!==b[i]);
- const hooks={useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v;}];},useRef(initial){const i=cursor++;return slots[i]??={current:initial};},useMemo(fn,deps){const i=cursor++;if(!slots[i]||changed(slots[i].deps,deps))slots[i]={value:fn(),deps};return slots[i].value;},useEffect(fn,deps){const i=cursor++;if(changed(slots[i],deps)){slots[i]=deps;effects.push(fn);}}};
+ const hooks={useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v;}];},useRef(initial){const i=cursor++;return slots[i]??={current:initial};},useMemo(fn,deps){const i=cursor++;if(!slots[i]||changed(slots[i].deps,deps))slots[i]={value:fn(),deps};return slots[i].value;},useEffect(fn,deps){const i=cursor++,prev=slots[i];if(changed(prev?.deps,deps))effects.push(()=>{prev?.cleanup?.();slots[i]={deps:[...deps],cleanup:fn()};});}};
  const storage={getItem:k=>map.get(k)??null,setItem:(k,v)=>{map.set(k,v);writes.push([k,v]);}};
  const module={exports:{}};
  const storageScope={get localStorage(){if(storageControl.denied)throw new DOMException('Storage denied','SecurityError');return storage;}};
- new Function('require','module','exports','storageScope','with(storageScope){'+compiled+'}')(name=>name==='react'?hooks:name==='react/jsx-runtime'?jsxRuntime:name==='@/app/components/async-action-button'?{AsyncActionButton}:name.startsWith('@/app/lib/')?require('../app/lib/'+name.slice(10)+'.ts'):require(name),module,module.exports,storageScope);
+ new Function('require','module','exports','storageScope','with(storageScope){'+compiled+'}')(name=>name==='react'?hooks:name==='react/jsx-runtime'?jsxRuntime:name==='@/app/components/async-action-button'?{AsyncActionButton}:name==='../owner-context'?require('../app/owner/owner-context.ts'):name.startsWith('@/app/lib/')?require('../app/lib/'+name.slice(10)+'.ts'):require(name),module,module.exports,storageScope);
  const render=()=>{cursor=0;const tree=module.exports.default(props);while(effects.length)effects.shift()();return tree;};
  const find=id=>nodes(render()).find(n=>n.props?.id===id);
  render();render();
- return{render,find,map,writes,props,storageControl,form:()=>nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}}),tick:()=>new Promise(r=>setImmediate(r))};
+ return{render,find,map,writes,props,storageControl,unmount(){for(const s of slots)s?.cleanup?.();},form:()=>nodes(render()).find(n=>n.type==='form').props.onSubmit({preventDefault(){}}),tick:()=>new Promise(r=>setImmediate(r))};
 }
 export async function prepare(h){for(const [key,value]of Object.entries(order.contact))h.find('contact-'+key).props.onChange({target:{value}});await h.form();h.find('receipt-file').props.onChange({currentTarget:{files:[new File(['original'],'receipt.pdf')]}});await h.find('receipt-upload').props.onClick();}

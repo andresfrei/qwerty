@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ownerHref } from "../owner-context";
 import { useRouter } from "next/navigation";
 import { AsyncActionButton } from "@/app/components/async-action-button";
 // @ts-expect-error Native Node tests require an explicit TypeScript extension.
 import { describePhotoState, photoEditMessage, photoEditOutcome, planPhotoEdit, type PhotoEditOperation } from "./photo-editor.ts";
 
 type PhotoEditorProps = {
+  businessId?: string;
   itemId: string;
   itemName: string;
   photoPath: string | null;
@@ -21,8 +23,13 @@ const control =
  * truth, so every request carries it and a compare-and-swap conflict refreshes
  * the page instead of silently overwriting a newer photo.
  */
-export function PhotoEditor({ itemId, itemName, photoPath, photoVersion }: PhotoEditorProps) {
+export function PhotoEditor({ businessId, itemId, itemName, photoPath, photoVersion }: PhotoEditorProps) {
   const router = useRouter();
+  const generation = useRef<symbol | null>(null);
+  useEffect(() => {
+    generation.current = Symbol(`${businessId ?? "legacy"}:${itemId}`);
+    return () => { generation.current = null; };
+  }, [businessId, itemId]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState<PhotoEditOperation | null>(null);
@@ -52,17 +59,21 @@ export function PhotoEditor({ itemId, itemName, photoPath, photoVersion }: Photo
     // A ref closes the same-tick gap before React renders disabled controls.
     lock.current = { pending: true, version: photoVersion };
     setPending(operation); setMessage(null); setUnknown(false);
+    const token = generation.current;
+    const current = () => token === generation.current;
     const uncertain = () => {
       setLockedVersion(photoVersion); setUnknown(true);
       setMessage("No sabemos si se guardó la foto. No repitas el envío: actualizá para consultar el estado.");
     };
     try {
-      const response = await fetch(plan.url, {
+      const url = businessId ? `${plan.url}?businessId=${encodeURIComponent(businessId)}` : plan.url;
+      const response = await fetch(url, {
         method: plan.method,
         headers: plan.headers,
         ...(plan.body !== undefined ? { body: plan.body } : {}),
       });
       const outcome = await photoEditOutcome(response);
+      if (!current()) return;
       const invalidReference = (outcome.kind === "replaced" || outcome.kind === "detached") &&
         (typeof outcome.photoVersion !== "string" || !/^(0|[1-9][0-9]{0,18})$/.test(outcome.photoVersion) ||
           (outcome.kind === "replaced" ? typeof outcome.photoPath !== "string" : outcome.photoPath !== null));
@@ -81,10 +92,9 @@ export function PhotoEditor({ itemId, itemName, photoPath, photoVersion }: Photo
         }
       }
     } catch {
-      uncertain();
+      if (current()) uncertain();
     } finally {
-      lock.current.pending = false;
-      setPending(null);
+      if (current()) { lock.current.pending = false; setPending(null); }
     }
   }
 
@@ -112,7 +122,7 @@ export function PhotoEditor({ itemId, itemName, photoPath, photoVersion }: Photo
           </AsyncActionButton>
         ) : null}
       </div>
-      {locked && <a className="mt-2 inline-block text-xs underline" href="/owner/catalog">{unknown ? "Actualizar estado" : "Actualizar catálogo"} (solo lectura)</a>}
+      {locked && <a className="mt-2 inline-block text-xs underline" href={ownerHref("catalog", businessId)}>{unknown ? "Actualizar estado" : "Actualizar catálogo"} (solo lectura)</a>}
       {message ? (
         <p className="mt-2 text-xs leading-5 text-[var(--muted)]" role="status">
           {message}

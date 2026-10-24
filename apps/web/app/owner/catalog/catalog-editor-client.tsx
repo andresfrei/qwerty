@@ -1,5 +1,6 @@
 "use client";
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { ownerHref, type OwnerBusiness } from "../owner-context";
 import { AsyncActionButton } from "@/app/components/async-action-button";
 import type { Option, OptionGroup } from "../../lib/catalog-selection";
 import { catalogFormPayload, moneyText, sendOwnerMutation } from "./catalog-editor";
@@ -7,7 +8,7 @@ import { catalogFormPayload, moneyText, sendOwnerMutation } from "./catalog-edit
 type Category = { id: string; name: string; sort_order: number };
 type Item = { id: string; category_id: string; name: string; description: string | null; price_minor: number; currency: string; is_available: boolean; sort_order: number };
 type Storefront = { slug: string; display_name: string; is_published: boolean };
-type Props = { categories: Category[]; items: Item[]; groups: OptionGroup[]; options: Option[]; storefront: Storefront | null; surchargeMinor: number };
+type Props = { business?: OwnerBusiness; categories: Category[]; items: Item[]; groups: OptionGroup[]; options: Option[]; storefront: Storefront | null; surchargeMinor: number };
 const input = "mt-1 min-h-11 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
 const button = "min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 text-sm font-extrabold disabled:opacity-50";
 function Field({ name, label, value = "", numeric = false, money = false }: { name: string; label: string; value?: string | number; numeric?: boolean; money?: boolean }) {
@@ -25,7 +26,12 @@ const pendingLabels: Record<string, string> = {
 };
 const hidden = (name: string, value: string) => <input type="hidden" name={name} value={value} />;
 
-export default function CatalogEditor({ categories, items, groups, options, storefront, surchargeMinor }: Props) {
+export default function CatalogEditor({ business, categories, items, groups, options, storefront, surchargeMinor }: Props) {
+  const generation = useRef<symbol | null>(null);
+  useEffect(() => {
+    generation.current = Symbol(business?.id);
+    return () => { generation.current = null; };
+  }, [business?.id]);
   const lock = useRef(false);
   const [state, setState] = useState<"idle" | "pending" | "saved" | "unknown">("idle");
   const [message, setMessage] = useState("");
@@ -36,7 +42,9 @@ export default function CatalogEditor({ categories, items, groups, options, stor
     const payload = catalogFormPayload(new FormData(event.currentTarget));
     if (!payload) { setMessage("Revisá los datos: precios con hasta dos decimales, moneda ISO de tres letras y límites válidos."); return; }
     lock.current = true; setState("pending"); setPendingForm(title); setMessage("");
-    const result = await sendOwnerMutation("/owner/catalog/actions", payload);
+    const token = generation.current;
+    const result = await sendOwnerMutation("/owner/catalog/actions", payload, undefined, business?.id);
+    if (generation.current !== token) return;
     if (result.kind === "saved") { setState("saved"); setMessage("Cambio guardado. Actualizá el catálogo para continuar."); }
     else if (result.kind === "unknown") { setState("unknown"); setMessage("No sabemos si se guardó. No repitas el envío: actualizá para consultar el estado."); }
     else { setState("idle"); setMessage(result.message); }
@@ -76,13 +84,13 @@ export default function CatalogEditor({ categories, items, groups, options, stor
     <noscript>Para guardar cambios necesitás JavaScript. Podés seguir consultando el catálogo de abajo.</noscript>
     <p className="text-sm leading-6">Los cambios se guardan de a uno. Menor orden aparece primero. La vista de abajo conserva la descripción y el precio que verá el cliente.</p>
     {message && <p role="status" className="text-sm font-bold">{message}</p>}
-    {(state === "unknown" || state === "saved") && <a className="font-extrabold underline" href="/owner/catalog">Actualizar catálogo (solo lectura)</a>}
+    {(state === "unknown" || state === "saved") && <a className="font-extrabold underline" href={ownerHref("catalog", business?.id)}>Actualizar catálogo (solo lectura)</a>}
     {storefront ? <>
       <p className="text-sm">{storefront.is_published ? "Publicada" : "Sin publicar"}: {storefront.display_name}</p>
       {items.length === 0 && <p className="text-sm">Tu catálogo está vacío. Podés publicarlo igual, pero todavía no tendrá productos para pedir.</p>}
       {form("Publicación", "set_published", hidden("isPublished", String(!storefront.is_published)), storefront.is_published ? "Dejar de publicar" : "Publicar tienda")}
       {storefront.is_published && <a id="buyer-link" className="break-all font-extrabold underline" href={`/store/${storefront.slug}`}>Ver tienda para hacer pedidos: /store/{storefront.slug}</a>}
-    </> : <a href="/owner" className="underline">Configurar vidriera sin publicar</a>}
+    </> : <a href={ownerHref("store", business?.id)} className="underline">Configurar tienda sin publicar</a>}
     {form("Nueva categoría", "create_category", <><Field name="name" label="Nombre de la categoría" /><Field name="sortOrder" label="Orden" value={0} numeric /></>, "Crear categoría")}
     <details><summary className="min-h-11 cursor-pointer py-2 font-extrabold">Editar categorías ({categories.length})</summary><div className="grid gap-3">
       {categories.map(c => <div key={c.id} className="grid gap-3">

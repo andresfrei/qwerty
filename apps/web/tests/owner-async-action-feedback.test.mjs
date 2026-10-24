@@ -24,7 +24,7 @@ function deferredTransport(t) {
 
 for(const [name,initial,fields,payload,pendingName] of [
  ['business',{}, {name:'Nombre conservado'},{action:'create_business',name:'Nombre conservado'},'Creando negocio…'],
- ['storefront',{business},{displayName:'Mi visible',slug:'mi-visible'},{action:'create_draft',displayName:'Mi visible',slug:'mi-visible'},'Creando vidriera…'],
+ ['storefront',{business},{displayName:'Mi visible',slug:'mi-visible'},{action:'create_draft',displayName:'Mi visible',slug:'mi-visible'},'Creando tienda…'],
 ]) test(`setup ${name}: initiating feedback, same-tick guard, denial retry and unknown retention`,async t=>{
  const transport=deferredTransport(t),h=harness('first-store-client.tsx',initial),e=event(fields);
  const callback=forms(h)[0].props.onSubmit;
@@ -32,7 +32,7 @@ for(const [name,initial,fields,payload,pendingName] of [
  assert.equal(transport.calls.length,1);pending(buttons(h)[0],pendingName);
  assert.equal(nodes(h.render()).find(n=>n.type==='fieldset').props.disabled,true);
  assert.deepEqual(JSON.parse(transport.calls[0].body),payload);
- assert.equal(transport.calls[0].url,'/owner/onboarding');
+ assert.equal(transport.calls[0].url,initial.business?`/owner/onboarding?businessId=${business.id}`:'/owner/onboarding');
  transport.respond(Response.json({error:'invalid_request'},{status:400}));await operation;
  assert.equal(nodes(h.render()).find(n=>n.type==='fieldset').props.disabled,false);
  assert.deepEqual(Object.fromEntries(e.currentTarget),fields);
@@ -40,7 +40,7 @@ for(const [name,initial,fields,payload,pendingName] of [
  assert.equal(buttons(h)[0].props['aria-busy'],false);
  assert.equal(buttons(h)[0].props.disabled,true);
  await forms(h)[0].props.onSubmit(e);assert.equal(transport.calls.length,2);
- const refresh=nodes(h.render()).find(n=>n.type==='a'&&n.props.href==='/owner');
+ const refresh=nodes(h.render()).find(n=>n.type==='a'&&n.props.href===(initial.business?`/owner/store?businessId=${business.id}`:'/owner'));
  assert.ok(refresh);assert.equal(refresh.props.onClick,undefined);
  assert.deepEqual(Object.fromEntries(e.currentTarget),fields);
 });

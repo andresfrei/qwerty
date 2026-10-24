@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AsyncActionButton } from "@/app/components/async-action-button";
 import { requestOrder, type OrderResponse } from "@/app/lib/pickup-order-client";
 import { formatMoney } from "@/app/lib/storefront";
+import { ownerHref } from "../owner-context";
 
 export default function OrderQueueClient({ businessId }: { businessId: string }) {
   const [result, setResult] = useState<OrderResponse | null>(null);
@@ -25,9 +26,9 @@ export default function OrderQueueClient({ businessId }: { businessId: string })
       if (generation.current === token) setResult(next);
     } finally { active.current = false; if (generation.current === token) setBusy(false); }
   }
-  return <main className="mx-auto min-h-screen max-w-3xl px-5 py-10 sm:px-8">
-    <a href="/owner/catalog" className="text-sm font-bold underline">Volver al catálogo</a>
-    <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Pedidos del negocio</h1>
+  return <section className="mx-auto max-w-3xl">
+    <a href={ownerHref("catalog", businessId)} className="text-sm font-bold underline">Volver al catálogo</a>
+    <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Pedidos de la tienda</h1>
     <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted)]">Consulta de los últimos 100 pedidos visibles, más recientes primero. No es un historial completo. Los estados del pedido y del pago son independientes; esta cola es de solo lectura.</p>
     <AsyncActionButton id="queue-refresh" type="button" pending={busy} pendingLabel="Actualizando pedidos…" onClick={refresh} disabled={busy} className="mt-5 min-h-11 rounded-lg border border-[var(--line)] bg-[var(--lime)] px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50">Actualizar pedidos</AsyncActionButton>
     <section className="mt-6 space-y-5" aria-live="polite" aria-busy={busy}>
@@ -43,5 +44,5 @@ export default function OrderQueueClient({ businessId }: { businessId: string })
         <p className="font-bold">Total: {formatMoney(order.totalMinor, order.currency)}</p>
       </article>))}
     </section>
-  </main>;
+  </section>;
 }

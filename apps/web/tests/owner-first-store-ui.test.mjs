@@ -15,8 +15,8 @@ test('same-tick double submit writes once; partial step uses server business; un
   const h=harness('first-store-client.tsx');const form=()=>nodes(h.render()).find(n=>n.type==='form');
   const fields=new Map([['name','Nombre conservado']]);const event={preventDefault(){},currentTarget:fields};
   const pending=form().props.onSubmit(event);await form().props.onSubmit(event);assert.equal(calls.length,1);resolve(Response.json({business}));await pending;
-  assert.match(text(h.render()),/Configurá tu vidriera/);assert.equal(text(nodes(h.find('first-store-submit')).find(n=>n.props?.className==='async-action-label')),'Crear vidriera sin publicar');
-  const draftFields=new Map([['displayName','Mi visible'],['slug','mi-visible']]);const saved=form().props.onSubmit({preventDefault(){},currentTarget:draftFields});assert.deepEqual(calls[1][1],{action:'create_draft',displayName:'Mi visible',slug:'mi-visible'});resolve(Response.json({storefront}));await saved;assert.match(text(h.render()),/Configurar catálogo/);
+  assert.match(text(h.render()),/Configurá tu tienda/);assert.equal(text(nodes(h.find('first-store-submit')).find(n=>n.props?.className==='async-action-label')),'Crear tienda sin publicar');
+  const draftFields=new Map([['displayName','Mi visible'],['slug','mi-visible']]);const saved=form().props.onSubmit({preventDefault(){},currentTarget:draftFields});assert.equal(calls[1][0],`/owner/onboarding?businessId=${business.id}`);assert.deepEqual(calls[1][1],{action:'create_draft',displayName:'Mi visible',slug:'mi-visible'});resolve(Response.json({storefront}));await saved;assert.match(text(h.render()),/Configurar catálogo/);
   const lost=harness('first-store-client.tsx');const submit=nodes(lost.render()).find(n=>n.type==='form').props.onSubmit;
   const operation=submit(event);resolve(Response.json({error:'unknown'},{status:503}));await operation;
   await nodes(lost.render()).find(n=>n.type==='form').props.onSubmit(event);assert.equal(calls.length,3);assert.equal(fields.get('name'),'Nombre conservado');assert.match(text(lost.render()),/solo lectura/);assert.equal(nodes(lost.render()).find(n=>n.type==='fieldset').props.disabled,true);

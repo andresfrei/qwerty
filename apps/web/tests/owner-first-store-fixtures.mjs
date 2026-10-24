@@ -29,9 +29,9 @@ export function load(file,mocks={},cache=new Map()) {
  },m,m.exports);cache.set(file,m.exports);return m.exports;
 }
 export function harness(file,props={},mocks={},exportName='default') {
- const slots=[];let cursor=0;
- const hooks={useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef(initial){const i=cursor++;return slots[i]??={current:initial};}};
+ const slots=[],effects=[];let cursor=0;
+ const hooks={useEffect(fn,deps){const i=cursor++,prev=slots[i];if(!prev||deps.length!==prev.deps.length||deps.some((v,j)=>v!==prev.deps[j]))effects.push(()=>{prev?.cleanup?.();slots[i]={deps:[...deps],cleanup:fn()};});},useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef(initial){const i=cursor++;return slots[i]??={current:initial};}};
  const module=load('apps/web/app/owner/'+file,{...mocks,react:hooks});
- const render=()=>{cursor=0;return module[exportName](props);};
- return {render,find:id=>nodes(render()).find(n=>n.props?.id===id),tick:()=>new Promise(r=>setImmediate(r))};
+ const render=()=>{cursor=0;const tree=module[exportName](props);while(effects.length)effects.shift()();return tree;};
+ return {render,props,unmount(){for(const s of slots)s?.cleanup?.();},find:id=>nodes(render()).find(n=>n.props?.id===id),tick:()=>new Promise(r=>setImmediate(r))};
 }
