@@ -1,5 +1,7 @@
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
 import { validateCatalogAction } from "./catalog-actions.ts";
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { parseBusinessSelection } from "../owner-context.ts";
 
 /** Decimal text to safe minor units; never multiply a floating-point major amount. */
 export function moneyMinor(value: string): number {
@@ -24,9 +26,11 @@ const messages: Record<string, string> = {
   not_found: "El registro cambió. Actualizá la página.",
   storefront_missing: "Primero configurá tu vidriera.",
 };
-export async function sendOwnerMutation(path: "/owner/onboarding" | "/owner/catalog/actions", payload: unknown, fetcher: typeof fetch = fetch): Promise<MutationResult> {
+export async function sendOwnerMutation(path: "/owner/onboarding" | "/owner/catalog/actions", payload: unknown, fetcher: typeof fetch = fetch, businessId?: string): Promise<MutationResult> {
   try {
-    const response = await fetcher(path, { method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    if (businessId !== undefined && !parseBusinessSelection(new URLSearchParams({ businessId })).ok) return { kind: "rejected", message: "Revisá la tienda seleccionada." };
+    const target = businessId === undefined ? path : `${path}?businessId=${encodeURIComponent(businessId.toLowerCase())}`;
+    const response = await fetcher(target, { method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const data = await response.json();
     if (!data || typeof data !== "object" || Array.isArray(data)) return { kind: "unknown" };
     if (response.ok) {
