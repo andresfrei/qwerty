@@ -1,4 +1,5 @@
 import "server-only";
+import { parseBusinessSelection } from "../owner/owner-context";
 import {
   createClient as createSupabaseClient,
   isAuthError,
@@ -207,6 +208,9 @@ export function createPhotoRuntime(
   dependencies: PhotoRuntimeDependencies = {},
 ): PhotoRuntime {
   if (typeof window !== "undefined") throw new PhotoRuntimeError("unavailable");
+  const selection = parseBusinessSelection(new URL(request.url).searchParams);
+  if (!selection.ok) throw new PhotoChangeError("invalid_input");
+  const businessId = selection.businessId;
   const getConfig = dependencies.getConfig ?? getSupabaseConfig;
   const getPrivateKey = dependencies.getPrivateKey ?? defaultPrivateKey;
   const createPublicClient = dependencies.createPublicClient ?? createDefaultPublicClient;
@@ -262,7 +266,7 @@ export function createPhotoRuntime(
       const client = createPrivateClient(config.url, secretKey.trim(), {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       });
-      return createSupabasePhotoPorts({ client, authenticatedUserId: authenticatedActor, normalize });
+      return createSupabasePhotoPorts({ client, authenticatedUserId: authenticatedActor, normalize, businessId });
     })();
     return portsPromise;
   }

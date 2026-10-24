@@ -1,3 +1,4 @@
+import { parseBusinessSelection } from "../owner/owner-context";
 import { PhotoNormalizationError } from "./product-photo-normalizer";
 import { PhotoChangeError, type PhotoReference } from "./product-photo-service";
 import { PhotoSupabaseError } from "./product-photo-supabase";
@@ -225,6 +226,9 @@ export async function handleProductPhotoRequest(
   if (!isTrustedPhotoRequest(request, trustedOrigin)) {
     return responseFor(request, 403, { error: "request_rejected" });
   }
+
+  const selection = parseBusinessSelection(new URL(request.url).searchParams);
+  if (!selection.ok) return responseFor(request, 400, { error: "invalid_input" });
 
   let runtime: PhotoRuntime;
   try {

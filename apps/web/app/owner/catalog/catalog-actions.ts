@@ -1,5 +1,7 @@
 // @ts-expect-error Native Node tests require an explicit TypeScript extension.
 import { getTrustedSiteOrigin, isTrustedCallbackRequest } from "../../lib/supabase/confirm.ts";
+// @ts-expect-error Native Node tests require an explicit TypeScript extension.
+import { parseBusinessSelection } from "../owner-context.ts";
 // The pure selection module supplies the mode type used by option groups.
 import type { SelectionMode } from "../../lib/catalog-selection.ts";
 
@@ -56,7 +58,7 @@ export type CatalogWrite =
  * business identifier, and every read through this port is RLS-scoped.
  */
 export interface CatalogGateway {
-  ownerBusinessId(): Promise<string | null>;
+  ownerBusinessId(businessId?: string): Promise<string | null>;
   categoryOwnedBy(businessId: string, categoryId: string): Promise<boolean>;
   itemOwnedBy(businessId: string, itemId: string): Promise<boolean>;
   // Optional so the pre-existing category/product gateway stays valid; the option
@@ -332,6 +334,9 @@ export async function handleCatalogPost(
     return catalogResponse(400, { error: "request_rejected" });
   }
 
+  const selection = parseBusinessSelection(new URL(request.url).searchParams);
+  if (!selection.ok) return catalogResponse(400, { error: "invalid_request" });
+
   let payload: unknown;
   try {
     payload = await request.json();
@@ -351,7 +356,7 @@ export async function handleCatalogPost(
 
   let businessId: string | null;
   try {
-    businessId = await gateway.ownerBusinessId();
+    businessId = await gateway.ownerBusinessId(selection.businessId);
   } catch {
     return catalogResponse(503, { error: "unavailable" });
   }

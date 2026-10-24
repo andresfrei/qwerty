@@ -2,6 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // @ts-expect-error Native Node tests require an explicit TypeScript extension.
 import { CatalogWriteError, type CatalogGateway, type CatalogWrite, type ItemFields } from "./catalog-actions.ts";
 
+// @ts-expect-error Native Node tests require an explicit TypeScript extension.
+import { resolveOwnerContext, type VerifiedOwnerCallback } from "../owner-context-gateway.ts";
+
 type WriteResult = { data: unknown[] | null; error: unknown };
 
 function itemPayload(fields: ItemFields): Record<string, unknown> {
@@ -21,7 +24,7 @@ function itemPayload(fields: ItemFields): Record<string, unknown> {
  * RLS-scoped session client, so tenant isolation is enforced by the database
  * policies anchored to `businesses.owner_id`.
  */
-export function createSupabaseCatalogGateway(supabase: SupabaseClient): CatalogGateway {
+export function createSupabaseCatalogGateway(supabase: SupabaseClient, onVerifiedOwner?: VerifiedOwnerCallback): CatalogGateway {
   async function requireAffected(result: WriteResult, code: "not_found" | "storefront_missing"): Promise<void> {
     if (result.error) throw new CatalogWriteError("unavailable");
     if (!result.data || result.data.length === 0) throw new CatalogWriteError(code);
@@ -39,17 +42,9 @@ export function createSupabaseCatalogGateway(supabase: SupabaseClient): CatalogG
   }
 
   return {
-    async ownerBusinessId() {
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user || !data.user.email_confirmed_at) return null;
-      const { data: rows, error: readError } = await supabase
-        .from("businesses")
-        .select("id")
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true })
-        .limit(1);
-      if (readError) throw new CatalogWriteError("unavailable");
-      return (rows as { id: string }[] | null)?.[0]?.id ?? null;
+    async ownerBusinessId(businessId) {
+      const context = await resolveOwnerContext(supabase, businessId, onVerifiedOwner);
+      return context?.business?.id ?? null;
     },
 
     categoryOwnedBy: (businessId, categoryId) => owned("catalog_categories", businessId, categoryId),

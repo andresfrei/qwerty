@@ -1,11 +1,14 @@
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
 import { getTrustedSiteOrigin, isTrustedCallbackRequest } from "../../lib/supabase/confirm.ts";
 
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { parseBusinessSelection } from "../owner-context.ts";
+
 export type FirstBusiness = { id: string; name: string };
 export type DraftStorefront = { slug: string; display_name: string; is_published: boolean };
 export interface OnboardingGateway {
   confirmedUser(): Promise<string | null>;
-  firstBusiness(ownerId: string): Promise<FirstBusiness | null>;
+  firstBusiness(ownerId: string, businessId?: string): Promise<FirstBusiness | null>;
   storefront(businessId: string): Promise<DraftStorefront | null>;
   createBusiness(ownerId: string, name: string): Promise<FirstBusiness>;
   createDraft(businessId: string, displayName: string, slug: string): Promise<DraftStorefront>;
@@ -42,8 +45,9 @@ async function boundedJson(request: Request): Promise<unknown> {
 export async function handleOnboarding(request: Request, dependencies: Dependencies): Promise<Response> {
   if (request.method !== "POST") return reply({ error: "method_not_allowed" }, 405);
   const origin = dependencies.trustedOrigin === undefined ? getTrustedSiteOrigin() : dependencies.trustedOrigin;
+  const selection = parseBusinessSelection(new URL(request.url).searchParams);
   if (!origin || request.headers.get("origin") !== origin || !isTrustedCallbackRequest(request, origin)
-    || new URL(request.url).search || new URL(request.url).pathname !== "/owner/onboarding"
+    || !selection.ok || new URL(request.url).pathname !== "/owner/onboarding"
     || request.headers.get("sec-fetch-site") === "cross-site") return reply({ error: "request_rejected" }, 403);
   if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers.get("content-type") ?? "")) return reply({ error: "invalid_request" }, 400);
   let payload: Record<string, unknown>;
@@ -56,12 +60,16 @@ export async function handleOnboarding(request: Request, dependencies: Dependenc
     if (payload.action === "create_business" ? !nameValid(payload.name) : !nameValid(payload.displayName)
       || typeof payload.slug !== "string" || payload.slug.length > 63 || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(payload.slug)) throw new Error("fields");
   } catch { return reply({ error: "invalid_request" }, 400); }
+  // Legacy create_business always resumes the first existing store; it is not a
+  // create-another endpoint. Selected context is supported only for draft recovery.
+  if (!selection.ok || (selection.businessId && payload.action === "create_business")) return reply({ error: "invalid_request" }, 400);
   try {
     const gateway = await dependencies.createGateway();
     if (!gateway) return reply({ error: "unavailable" }, 503);
     const ownerId = await gateway.confirmedUser();
     if (!ownerId) return reply({ error: "unauthorized" }, 401);
-    const business = await gateway.firstBusiness(ownerId);
+    const business = await gateway.firstBusiness(ownerId, selection.businessId);
+    if (selection.businessId && !business) return reply({ error: "business_missing" }, 409);
     if (payload.action === "create_business") {
       if (business) return reply({ business, resumed: true });
       return reply({ business: await gateway.createBusiness(ownerId, (payload.name as string).trim()) }, 201);

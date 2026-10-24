@@ -2,23 +2,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
 import { OnboardingError, type OnboardingGateway, type FirstBusiness, type DraftStorefront } from "./owner-onboarding.ts";
 
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { confirmedOwnerId, findOwnedBusiness } from "../owner-context-gateway.ts";
+
 /** Caller-session client only. Current confirmed/nondeleted ownership is enforced again by RLS. */
 export function createOnboardingGateway(client: SupabaseClient): OnboardingGateway {
   let boundUser: string | null = null;
   let boundBusiness: string | null = null;
   return {
     async confirmedUser() {
-      const { data, error } = await client.auth.getUser();
-      const user = data?.user;
-      boundUser = !error && user?.email && user.email_confirmed_at && !user.is_anonymous && user.role === "authenticated" ? user.id : null;
+      boundUser = await confirmedOwnerId(client);
       return boundUser;
     },
-    async firstBusiness(ownerId) {
+    async firstBusiness(ownerId, businessId) {
       if (!boundUser || ownerId !== boundUser) throw new OnboardingError("unavailable");
-      const { data, error } = await client.from("businesses").select("id,name").eq("owner_id", boundUser)
-        .order("created_at", { ascending: true }).order("id", { ascending: true }).limit(1);
-      if (error) throw new OnboardingError("unavailable");
-      const business = (data as FirstBusiness[] | null)?.[0] ?? null;
+      let business: FirstBusiness | null;
+      try { business = await findOwnedBusiness(client, boundUser, businessId); }
+      catch { throw new OnboardingError("unavailable"); }
       boundBusiness = business?.id ?? null;
       return business;
     },

@@ -53,6 +53,8 @@ export interface SupabasePhotoPortOptions {
   client: SupabasePhotoClient;
   authenticatedUserId: () => Promise<string | null>;
   normalize: PhotoPorts["normalize"];
+  /** Additional context constraint; the owned-item RPC remains authoritative. */
+  businessId?: string;
 }
 
 function hasOnlyKeys(value: object, keys: string[]): boolean {
@@ -127,6 +129,7 @@ export function createSupabasePhotoPorts(options: SupabasePhotoPortOptions): Pho
       if (data.length === 0) return null;
       const row = data[0];
       if (!validOwnerRow(row)) throw new PhotoSupabaseError("invalid_database_response");
+      if (options.businessId !== undefined && row.business_id.toLowerCase() !== options.businessId.toLowerCase()) return null;
       return { businessId: row.business_id, photoVersion: row.photo_version };
     },
 
