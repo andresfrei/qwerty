@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { accessRedirect } from "@/app/auth/access-validation";
+import { loadOwnerDashboard, type OwnerSearch } from "../owner-dashboard-data";
+import { OwnerDashboardView } from "../owner-dashboard-views";
+import { OwnerShell } from "../owner-shell";
+import { ownerHref } from "../owner-context";
 import { formatMoney } from "@/app/lib/storefront";
 import type { Option, OptionGroup } from "@/app/lib/catalog-selection";
 import { createClient } from "@/app/lib/supabase/server";
@@ -8,7 +10,6 @@ import { describeGroupBehavior } from "./catalog-preview";
 import { PhotoEditor } from "./photo-editor-client";
 import CatalogEditor from "./catalog-editor-client";
 
-type Business = { id: string; name: string };
 type Storefront = { slug: string; display_name: string; is_published: boolean };
 type Category = { id: string; name: string; sort_order: number };
 type Item = {
@@ -30,21 +31,12 @@ const card = "rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[0_1.5
 const on = "rounded-full bg-[var(--soft-lime)] px-2.5 py-1 text-xs font-extrabold text-[var(--olive)]";
 const off = "rounded-full bg-[var(--line)] px-2.5 py-1 text-xs font-extrabold text-[var(--muted)]";
 
-export default async function OwnerCatalogPage() {
+export default async function OwnerCatalogPage({ searchParams }: { searchParams: Promise<OwnerSearch> }) {
   const supabase = await createClient();
-  if (!supabase) redirect(accessRedirect("/auth/login", "unavailable"));
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect(accessRedirect("/auth/login", "required"));
-  if (!user.email_confirmed_at) redirect(accessRedirect("/auth/login", "unconfirmed"));
-
-  const { data: businessRows, error: businessError } = await supabase
-    .from("businesses")
-    .select("id,name")
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true })
-    .limit(1);
-  const business = ((businessRows ?? []) as Business[])[0];
+  const data = await loadOwnerDashboard(supabase, await searchParams);
+  if (data.kind !== "selected" || !supabase) return <OwnerDashboardView data={data} module="catalog" />;
+  const { business } = data;
+  const contextKey = `${data.account.id}:${business.id}`;
 
   let storefront: Storefront | null = null;
   let categories: Category[] = [];
@@ -52,11 +44,10 @@ export default async function OwnerCatalogPage() {
   let optionGroups: OptionGroup[] = [];
   let options: Option[] = [];
   let surchargeMinor = 0;
-  let loadError = Boolean(businessError);
-  if (business && !loadError) {
-    const [storefrontResult, categoryResult, itemResult, groupResult, optionResult, settingsResult] = await Promise.all([
-      supabase.from("business_storefronts").select("slug,display_name,is_published")
-        .eq("business_id", business.id).maybeSingle(),
+  let loadError = false;
+  try {
+    storefront = data.storefront;
+    const [categoryResult, itemResult, groupResult, optionResult, settingsResult] = await Promise.all([
       supabase.from("catalog_categories").select("id,name,sort_order")
         .eq("business_id", business.id).order("sort_order").order("id"),
       supabase.from("catalog_items")
@@ -71,45 +62,33 @@ export default async function OwnerCatalogPage() {
       supabase.from("business_catalog_settings").select("two_flavor_surcharge_minor")
         .eq("business_id", business.id).maybeSingle(),
     ]);
-    if (storefrontResult.error || categoryResult.error || itemResult.error
+    if (categoryResult.error || itemResult.error
       || groupResult.error || optionResult.error || settingsResult.error) {
       loadError = true;
     } else {
-      storefront = (storefrontResult.data as Storefront | null) ?? null;
       categories = (categoryResult.data ?? []) as Category[];
       items = (itemResult.data ?? []) as Item[];
-      optionGroups = (groupResult.data ?? []) as OptionGroup[];
-      options = (optionResult.data ?? []) as Option[];
+      const itemIds = new Set(items.map(item => item.id));
+      optionGroups = ((groupResult.data ?? []) as OptionGroup[]).filter(group => itemIds.has(group.item_id));
+      const groupIds = new Set(optionGroups.map(group => group.id));
+      options = ((optionResult.data ?? []) as Option[]).filter(option => groupIds.has(option.group_id));
       surchargeMinor = (settingsResult.data as { two_flavor_surcharge_minor: number } | null)?.two_flavor_surcharge_minor ?? 0;
     }
-  }
+  } catch { loadError = true; }
 
   return (
-    <main className="min-h-screen px-5 py-6 sm:px-8 sm:py-8">
-      <header className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-        <Link className="text-[1.55rem] font-[750] tracking-[-0.08em]" href="/owner">qwerty</Link>
-        <form action="/auth/logout" method="post">
-          <button
-            className="min-h-11 rounded-lg border border-[var(--olive)] px-4 py-2 text-sm font-extrabold text-[var(--olive)]"
-            type="submit"
-          >
-            Cerrar sesión
-          </button>
-        </form>
-      </header>
-
+    <OwnerShell key={contextKey} ownedBusinesses={data.businesses} selectedBusiness={business} activeModule="catalog" account={data.account} pagination={data.pagination}>
       <section className="mx-auto mt-14 max-w-3xl" aria-labelledby="catalog-title">
         <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[var(--olive)]">Catálogo</p>
         <h1 id="catalog-title" className="mt-3 text-4xl font-[750] tracking-[-0.07em]">
           {business ? business.name : "Tu catálogo"}
         </h1>
         <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--muted)]">
-          Categorías y productos de tu negocio, con precio, moneda, disponibilidad y orden. Los
-          cambios se envían a <code className="font-mono text-xs">/owner/catalog/actions</code> con
-          tu sesión confirmada; ningún identificador de negocio viaja en la petición.
+          Categorías y productos de esta tienda, con precio, moneda, disponibilidad y orden.
+          Los cambios usan tu sesión confirmada y la tienda seleccionada; el servidor verifica el acceso.
         </p>
-        <Link className="mt-4 inline-block text-sm font-extrabold text-[var(--olive)] underline" href="/owner">
-          Volver a tus negocios
+        <Link className="mt-4 inline-block text-sm font-extrabold text-[var(--olive)] underline" href={ownerHref("home", business.id)}>
+          Volver al inicio de esta tienda
         </Link>
 
         {loadError ? (
@@ -121,9 +100,9 @@ export default async function OwnerCatalogPage() {
         ) : (
           <div className="mt-8 grid gap-6">
             <Link className="text-sm font-extrabold text-[var(--olive)] underline" href={`/owner/orders?businessId=${business.id}`} prefetch={false}>Consultar pedidos</Link>
-            <CatalogEditor categories={categories} items={items} groups={optionGroups} options={options} storefront={storefront} surchargeMinor={surchargeMinor} />
+            <CatalogEditor key={contextKey} business={business} categories={categories} items={items} groups={optionGroups} options={options} storefront={storefront} surchargeMinor={surchargeMinor} />
             <div className={card}>
-              <h2 className="text-lg font-[750] tracking-[-0.04em]">Vidriera</h2>
+              <h2 className="text-lg font-[750] tracking-[-0.04em]">Tienda</h2>
               {storefront ? (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <strong className="text-sm">{storefront.display_name}</strong>
@@ -133,7 +112,7 @@ export default async function OwnerCatalogPage() {
                   </span>
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-[var(--muted)]">Este negocio todavía no tiene una vidriera.</p>
+                <p className="mt-4 text-sm text-[var(--muted)]">Esta tienda todavía no tiene una dirección configurada.</p>
               )}
               <p className="mt-3 text-xs text-[var(--muted)]">
                 Recargo por dos gustos: {formatMoney(surchargeMinor, items[0]?.currency ?? "ARS")}.
@@ -172,6 +151,8 @@ export default async function OwnerCatalogPage() {
                               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
                             ) : null}
                             <PhotoEditor
+                              key={`${contextKey}:${item.id}`}
+                              businessId={business.id}
                               itemId={item.id}
                               itemName={item.name}
                               photoPath={item.photo_path}
@@ -213,6 +194,6 @@ export default async function OwnerCatalogPage() {
           </div>
         )}
       </section>
-    </main>
+    </OwnerShell>
   );
 }
