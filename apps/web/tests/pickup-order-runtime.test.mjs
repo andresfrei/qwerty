@@ -30,6 +30,7 @@ function sdk({ user = { id: actor, is_anonymous: true }, dispatch } = {}) {
     const authorization = new Headers(init.headers).get('authorization');
     if (url.pathname === '/auth/v1/user') { assert.equal(init.method, 'GET'); assert.equal(authorization, `Bearer ${token}`); return Response.json(user); }
     assert.ok(calls.some(call => call.url.pathname === '/auth/v1/user'));
+    if (url.pathname === '/rest/v1/rpc/catalog_configuration_capabilities') return Response.json({ code: 'PGRST202', message: 'Could not find the function public.catalog_configuration_capabilities without parameters in the schema cache', details: 'Searched for the function public.catalog_configuration_capabilities without parameters, but no matches were found in the schema cache.' }, { status: 404 });
     return dispatch(url, init, authorization, token);
   } });
   return { dependencies, calls, headers: { cookie } };
@@ -51,7 +52,7 @@ test('public POST route uses installed SSR getUser and exact service RPC names/p
     assert.fail(url.pathname);
   } });
   const response = await route(collectionPath, f.dependencies).POST(request('POST', '?slug=pizza', input, f.headers));
-  assert.equal(response.status, 201); assert.deepEqual(await response.json(), { order: dto }); assert.equal(attemptReads, 1); assert.equal(writes, 1); assert.equal(f.calls.length, 5);
+  assert.equal(response.status, 201); assert.deepEqual(await response.json(), { order: dto }); assert.equal(attemptReads, 1); assert.equal(writes, 1); assert.equal(f.calls.length, 6);
 });
 test('installed SDK transport failure recovers freshly committed winner, never retries RPC', async () => {
   let attempts = 0, writes = 0;

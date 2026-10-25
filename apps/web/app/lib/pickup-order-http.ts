@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server.js";
 import type { CallbackCookieState } from "./supabase/callback-cookies";
-import type { OrderResult, PickupOrderRepository } from "./pickup-order-service";
-import type { PickupIntent } from "./order-quote";
+import type { AcceptedPickupIntent, OrderResult, PickupOrderRepository } from "./pickup-order-service";
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { normalizeConfiguredPickupIntent } from "./configured-order-quote.ts";
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
 import { createCallbackCookieState } from "./supabase/callback-cookies.ts";
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
@@ -66,12 +67,14 @@ export async function handlePickupOrderRequest(request: NextRequest, target: "co
     if (target === "collection" && (!slug || slug.length > 63 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || (request.method === "GET" && (!requestId || !PICKUP_UUID.test(requestId))))) return rejected();
     if (target === "queue" && (!business || !PICKUP_UUID.test(business))) return rejected();
     if (target !== "queue" && target !== "collection" && !PICKUP_UUID.test(target.id)) return response({ error: "Order not found" }, 404);
-    let intent: PickupIntent | undefined;
+    let intent: AcceptedPickupIntent | undefined;
     if (request.method === "POST") {
       const json = await readJson(request);
       if (json === "large") return response({ error: "Request too large" }, 413);
       if (!json || !slug) return rejected();
-      const normalized = normalizePickupIntent(json.value, slug);
+      const value = json.value;
+      const normalized = value !== null && typeof value === "object" && "version" in value && value.version === 2
+        ? normalizeConfiguredPickupIntent(value, slug) : normalizePickupIntent(value, slug);
       if (!normalized.ok) return rejected();
       intent = normalized.intent;
     } else if (request.body || request.headers.has("content-encoding") || (request.headers.has("content-length") && request.headers.get("content-length") !== "0")) return rejected();

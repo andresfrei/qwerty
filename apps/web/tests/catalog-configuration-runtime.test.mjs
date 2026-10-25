@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as runtime from '../app/lib/catalog-configuration-runtime.ts';
+import { createPickupOrderRuntime } from '../app/lib/supabase/pickup-order-runtime.ts';
 import { fixture, id } from './catalog-profiles-fixtures.mjs';
 const ids = { business: id(99), other: id(98), pizza: id(1), dozen: id(2), combo: id(3), muzza: id(22) };
 const catalog = () => fixture().catalog;
@@ -63,6 +64,59 @@ test('whole-business rows do not receive T1 projected row limits', () => {
   assert.ok(validated);
   const projected = runtime.projectConfiguredCatalog(validated, ids.dozen);
   assert.equal(projected.ok, true); assert.equal(projected.value.items.length, 1);
+});
+
+test('actual runtime factory wires capability and v2 snapshot with service-only no-store SDK calls', async () => {
+  const calls = [];
+  const dependencies = createPickupOrderRuntime({ fetch: async (input, init) => {
+    const url = new URL(String(input)); calls.push(url.pathname);
+    assert.equal(new Headers(init.headers).get('authorization'), 'Bearer synthetic-service');
+    assert.equal(init.cache, 'no-store'); assert.ok(init.signal);
+    if (url.pathname.endsWith('/catalog_configuration_capabilities')) { assert.deepEqual(JSON.parse(init.body), {}); return Response.json([{ version: 2, schemaVersion: 1 }]); }
+    assert.equal(url.pathname, '/rest/v1/rpc/pickup_order_catalog_v2');
+    assert.deepEqual(JSON.parse(init.body), { p_business: ids.business, p_slug: 'pizza' });
+    return Response.json(snapshot());
+  } });
+  const repository = dependencies.connect({ url: 'https://synthetic.supabase.co', anonKey: 'synthetic-anon', serviceKey: 'synthetic-service' }, { getAll: () => [], setAll: () => {} }).service();
+  assert.equal(typeof repository.configurationCapability, 'function');
+  assert.equal(await repository.configurationCapability(), 'ready');
+  const value = await repository.configuredCatalog(ids.business, 'pizza');
+  assert.equal(value.version, 2); assert.deepEqual(calls, ['/rest/v1/rpc/catalog_configuration_capabilities', '/rest/v1/rpc/pickup_order_catalog_v2']);
+});
+
+test('actual SDK snapshot transport refuses oversized declared bodies before JSON parsing', async () => {
+  const dependencies = createPickupOrderRuntime({ fetch: async () => Response.json(snapshot(), { headers: { 'Content-Length': String(16 * 1024 * 1024 + 1) } }) });
+  const repository = dependencies.connect({ url: 'https://synthetic.supabase.co', anonKey: 'synthetic-anon', serviceKey: 'synthetic-service' }, { getAll: () => [], setAll: () => {} }).service();
+  await assert.rejects(repository.configuredCatalog(ids.business, 'pizza'), /unavailable/i);
+});
+
+test('actual runtime cancels chunked overflow without Content-Length or writes; inclusive boundary succeeds', async () => {
+  const limit = runtime.CONFIGURED_SNAPSHOT_MAX_BYTES;
+  for (const overflow of [false, true]) {
+    let cancelled = false, calls = 0;
+    const payload = new TextEncoder().encode(JSON.stringify(snapshot()));
+    // Legal trailing JSON whitespace reaches the exact transport boundary.
+    let sent = 0;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (sent === 0) { controller.enqueue(payload); sent += payload.length; return; }
+        if (sent < limit) { const chunk = new Uint8Array(Math.min(65536, limit - sent)).fill(32); sent += chunk.length; controller.enqueue(chunk); return; }
+        if (overflow) { controller.enqueue(new TextEncoder().encode(' PRIVATE_SENTINEL')); return; }
+        controller.close();
+      },
+      cancel() { cancelled = true; },
+    });
+    const dependencies = createPickupOrderRuntime({ fetch: async (input, init) => {
+      calls++; assert.equal(new URL(String(input)).pathname, '/rest/v1/rpc/pickup_order_catalog_v2');
+      assert.equal(init.method, 'POST');
+      const response = new Response(body, { headers: { 'content-type': 'application/json' } });
+      assert.equal(response.headers.has('content-length'), false); return response;
+    } });
+    const repository = dependencies.connect({ url: 'https://synthetic.supabase.co', anonKey: 'synthetic-anon', serviceKey: 'synthetic-service' }, { getAll: () => [], setAll: () => { assert.fail('no app writes'); } }).service();
+    if (overflow) await assert.rejects(repository.configuredCatalog(ids.business, 'pizza'), error => { assert.equal(error.message, 'Configured catalog unavailable'); assert.equal(String(error).includes('PRIVATE_SENTINEL'), false); return true; });
+    else assert.equal((await repository.configuredCatalog(ids.business, 'pizza')).version, 2);
+    assert.equal(cancelled, overflow); assert.equal(calls, 1);
+  }
 });
 
 test('snapshot RPC absence after readiness throws rather than downgrade', async () => {

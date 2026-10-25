@@ -1,17 +1,25 @@
-// @ts-expect-error Native Node tests require explicit TypeScript extensions.
-import { presentConfiguredPickupOrder } from "./configured-order-presenter.ts";
 import { isDeepStrictEqual } from "node:util";
 import type { OrderCatalog, PickupIntent, PickupQuote } from "./order-quote";
+import type { ConfiguredPickupIntent, ConfiguredPickupQuote } from "./configured-order-quote";
+import type { CatalogConfigurationCapability, CatalogConfigurationRuntime } from "./catalog-configuration-runtime";
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { quoteConfiguredPickupOrder } from "./configured-order-quote.ts";
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { validateConfiguredCatalogSnapshot } from "./catalog-configuration-runtime.ts";
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { presentConfiguredPickupOrder } from "./configured-order-presenter.ts";
+export type AcceptedPickupIntent = PickupIntent | ConfiguredPickupIntent;
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
 import { normalizePickupIntent, quotePickupOrder } from "./order-quote.ts";
 
 export const PICKUP_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type OrderResult = { status: number; body: object };
-export type PickupOrderRepository = {
+export type PickupOrderRepository = CatalogConfigurationRuntime & {
   resolveBusiness(slug: string): Promise<string | null>;
   findAttempt(actor: string, business: string, request: string): Promise<unknown>;
   catalog(business: string, slug: string): Promise<OrderCatalog | null>;
   finalize(actor: string, business: string, intent: PickupIntent, quote: PickupQuote): Promise<unknown>;
+  finalizeConfigured(actor: string, business: string, intent: ConfiguredPickupIntent, quote: ConfiguredPickupQuote): Promise<unknown>;
 };
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 const uuid = (value: unknown): value is string => typeof value === "string" && PICKUP_UUID.test(value);
@@ -48,7 +56,7 @@ export function presentPickupOrder(value: unknown) {
   return { id: value.id, requestId: value.request_id, receiptId: value.receipt_id, currency: value.currency, totalMinor: value.total_minor,
     fulfillmentState: value.fulfillment_state, paymentState: value.payment_state, createdAt: value.created_at, contact: { ...normalized.intent.contact }, lines };
 }
-function boundAttempt(value: unknown, actor: string, business: string, requestId: string, intent?: PickupIntent): OrderResult {
+function boundAttempt(value: unknown, actor: string, business: string, requestId: string, intent?: AcceptedPickupIntent): OrderResult {
   if (!object(value) || value.actor_id !== actor || value.business_id !== business || value.request_id !== requestId) throw Error("Invalid attempt binding");
   const order = presentPickupOrder(value);
   return intent && !isDeepStrictEqual(value.intent, intent) ? rejected("idempotency_conflict") : { status: 200, body: { order } };
@@ -56,7 +64,7 @@ function boundAttempt(value: unknown, actor: string, business: string, requestId
 
 // One finalization at most. A separate lookup has a new READ COMMITTED visibility
 // boundary; a failed/missing lookup after a transport error cannot establish absence.
-export async function submitPickupOrder(repository: PickupOrderRepository, actor: string, intent: PickupIntent): Promise<OrderResult> {
+export async function submitPickupOrder(repository: PickupOrderRepository, actor: string, intent: AcceptedPickupIntent): Promise<OrderResult> {
   let business: string | null;
   try { business = await repository.resolveBusiness(intent.slug); } catch { return unavailableOrder(); }
   if (!business || !PICKUP_UUID.test(business)) return unknownOrder(intent.requestId);
@@ -66,14 +74,35 @@ export async function submitPickupOrder(repository: PickupOrderRepository, actor
   };
   try {
     const prior = await fresh(); if (prior) return prior;
+    // Replay is authoritative before capability, publication or current pricing.
+    // Missing repository methods are programming errors, never legacy evidence.
+    let capability: CatalogConfigurationCapability;
+    try { capability = await repository.configurationCapability(); }
+    catch { return await fresh() ?? unavailableOrder(); }
+    if (capability !== "ready" && !(capability === "legacy_only" && intent.version === 1)) return await fresh() ?? unavailableOrder();
+    let configured = null;
+    if (capability === "ready") {
+      try {
+        configured = validateConfiguredCatalogSnapshot(await repository.configuredCatalog(business, intent.slug), business, intent.slug);
+        if (!configured) return await fresh() ?? rejected("unavailable");
+      } catch { return await fresh() ?? unavailableOrder(); }
+      if (intent.version === 1 && configured.profiles.some(profile => profile.is_active && intent.lines.some(line => line.itemId === profile.item_id))) {
+        return await fresh() ?? rejected("invalid_selection", 422);
+      }
+    }
     let failure: OrderResult;
-    const catalog = await repository.catalog(business, intent.slug);
-    if (!catalog || catalog.businessId !== business) failure = rejected("unavailable");
+    // V1 must use its own coherent fingerprint and old RPC even after ready.
+    const catalog = intent.version === 1 ? await repository.catalog(business, intent.slug) : null;
+    const priced = intent.version === 2 && configured ? quoteConfiguredPickupOrder(intent, configured)
+      : intent.version === 1 && catalog && catalog.businessId === business ? quotePickupOrder(intent, catalog) : null;
+    if (!priced) failure = rejected("unavailable");
     else {
-      const priced = quotePickupOrder(intent, catalog);
       if (!priced.ok) failure = rejected(priced.code, ["quote_changed", "unavailable"].includes(priced.code) ? 409 : 422);
       else {
-        const result = await repository.finalize(actor, business, intent, priced.quote);
+        const result = intent.version === 2 && priced.quote.version === 2
+          ? await repository.finalizeConfigured(actor, business, intent, priced.quote)
+          : intent.version === 1 && priced.quote.version === 1
+            ? await repository.finalize(actor, business, intent, priced.quote) : null;
         if (object(result) && (result.code === "created" || result.code === "replayed")) {
           const confirmed = boundAttempt(result.order, actor, business, intent.requestId, intent);
           return confirmed.status === 200 ? { ...confirmed, status: result.code === "created" ? 201 : 200 } : confirmed;

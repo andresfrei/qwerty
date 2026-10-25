@@ -1,8 +1,10 @@
-# Configured checkout — quotation and immutable history
+# Configured checkout — versioned backend contract
 
-SOURCE only. Pure quotation, stored v2 history dispatch and additive browser codec
-exist. New v2 POST/service/SDK finalization is not wired in this prefix. No UI or
-deployment claim.
+**T3 source integration; not deployed or activated.** The HTTP/service/runtime
+now compose the existing adapter and pure engine, with dual-version history and
+client decoding. This does not prove SQL execution, RLS, concurrent database
+behavior or deployed capabilities. Owner/public configuration UI remains T4/T5;
+independent review remains T6. Do not activate profiles from this source evidence.
 
 ## Capability contract shared with T4/T5
 
@@ -28,6 +30,15 @@ are recognized. An unrelated function/parameter signature, transport/permission
 failure, empty/multirow/bare-object response or unknown fields/types is unavailable.
 There is no undefined-method fallback and no capability cache in this adapter.
 
+The installed-SDK runtime factory returns `ConfiguredPickupOrderDependencies`;
+`connect(...).service()` retains every old repository method and exposes the
+adapter methods plus `finalizeConfigured(actor,business,intent,quote)`. Their
+construction performs **no RPC**. New submissions first resolve the business and
+read the actor/business/request attempt. Only absent attempts consult capability.
+Recovery and historical reads never consult capability, publication, configuration
+or pricing. Repository implementations must explicitly provide capability methods;
+a missing method is never evidence of a legacy schema.
+
 ## Private snapshot / projection
 
 `configuredCatalog` calls only service RPC `pickup_order_catalog_v2` with exact
@@ -37,6 +48,8 @@ after ready capability; they never select legacy. SQL NULL remains `null`.
 The adapter checks exact wrapper keys, version 2/schemaVersion 1, business/slug
 binding, SHA-256 format, row keys/types/identity uniqueness and same-business
 item/group/option/profile references. Payloads are bounded to 16 MiB and depth 24.
+The actual runtime additionally bounds declared and streamed v2 response bytes
+before SDK JSON decoding. The existing v1 transport path is not size-rewritten.
 
 Projection selects only the requested root, its configured fixed children, their
 groups/options and profile records, explicitly constructs the exact T1 fields,
@@ -151,6 +164,63 @@ This module performs no writes or authorization. The SQL fingerprint certifies
 **freshness, not price**. Historical attempt lookup must still precede catalog
 fetch/pricing; correction is not permission to retry a write automatically.
 
+The public-runtime stream regression now exercises the actual factory and SDK
+with fake fetch: no Content-Length, chunked overflow cancels the source, exposes
+only unavailable, and makes one read RPC/no application writes. An exactly-16-MiB
+JSON response padded with legal whitespace succeeds without cancellation. No
+real network or SDK retry waits are used; no adapter production change was needed.
+
+## HTTP, service and history contract for T4/T5
+
+POST `/api/checkout/orders?slug=…` dispatches only an explicit numeric `version:2`
+to the existing configured normalizer. V1 remains its exact unversioned body;
+explicit version 1, unknown versions/keys, client prices and supplied actor/business
+IDs reject. Body normalization precedes session verification; neither path creates
+an anonymous identity. Origin, headers, body budgets and actor verification are
+unchanged. A verified refresh cookie may accompany a later 409/503/404; invalid
+ingress or rejected verification cannot publish staged cookies.
+
+For a new v1 attempt, legacy-only capability uses the old path unchanged. Ready
+capability requires the private v2 snapshot first: any selected active profile
+rejects as `422 {error:"Order unavailable",code:"invalid_selection"}` **before**
+legacy pricing/writing. Unprofiled v1 still fetches the real v1 snapshot and uses
+its v1 fingerprint and `finalize_pickup_order`; no v2 fingerprint or rewritten
+intent crosses that call. The SQL insertion fence remains necessary for races.
+
+V2 requires ready capability and a valid business/slug-bound snapshot. Capability
+failure, missing v2 snapshot RPC or transport error yields unavailable, never
+legacy fallback. A valid but unpublished/absent snapshot rejects as unavailable.
+The accepted pure quote is passed unchanged to `finalize_pickup_order_v2` with
+exact `{p_actor,p_business,p_intent,p_quote}`; the normalized intent is stored
+unchanged, even when quote selection deduplicates identical pizza halves. No
+client-supplied prices, private wrappers or profile documents are returned.
+
+Both versions compare the complete canonical stored intent before consulting the
+catalog. A changed payload on the same request is `idempotency_conflict`, no write.
+There is at most one finalizer invocation. Every rejected/unknown write receives
+a fresh scoped attempt read, not an automatic retry. A winner returns 200; an
+unconfirmed transport/provider error remains `503 outcome_unknown` and preserves
+the request ID. A missing finalizer after ready capability is also unknown after
+its attempted write, never permission to downgrade or resubmit.
+
+Public success is `201 {order}` for creation or `200 {order}` for replay/recovery,
+known-ID read and queue entries. V1 DTO bytes are unchanged. A v2 `order` contains:
+
+```ts
+{version:2,id,requestId,receiptId,currency,totalMinor,
+ fulfillmentState:"pendiente_de_pago",paymentState:"pendiente",createdAt,
+ contact:{name,email,telephone},lines:ConfiguredQuoteLine[]}
+```
+
+The line schema is exactly the accepted quote-line schema above, including root
+selection/profile metadata, parent price, groups and independent component/instance
+snapshots. No actor ID, business ID, fingerprint or current profile document leaves
+this presenter. GET recovery, known-ID reads and the owner queue dispatch using the
+stored intent version; no current catalog lookup or repricing occurs. Existing
+receipt/queue DTO consumers can still read the common line summary fields. T5 must
+use the v2 discriminator and render components explicitly, not flatten them into a
+legacy selection array. This work does not mount that UI.
+
 `configured-order-presenter.ts` validates stored envelope/contact/currency/total,
 intent identity, multiplication, line/profile/selection bindings, group/pick
 snapshot bindings and component/instance/version identities. It projects explicit
@@ -166,3 +236,19 @@ unions it with the unchanged legacy `OrderIntent`, and `ConfiguredOrder` adds
 `version:2` plus typed rich lines to the existing common DTO. `requestOrder` sends
 version 2 only for that intent and retains one-request/no-retry behavior. Existing
 technical attempt references and read-only unknown recovery remain unchanged.
+
+Correction responses deliberately retain the existing narrow public error shape,
+**not** the private pure-engine quote: `409 {error:"Order unavailable",code}` for
+`quote_changed`, `catalog_changed`, `unavailable` and receipt/idempotency rejection;
+422 for invalid request/selection, mixed currency or unsafe amounts. Capability
+or read-transport failure is `503 unavailable`; uncertain finalization is
+`503 {error:"Order outcome unknown",code:"outcome_unknown",requestId}`. T5 must
+retain the attempted payload/receipt/key and require explicit review/repricing;
+a correction never consumes a receipt or authorizes an automatic POST.
+
+Focused public HTTP, actual installed-SDK fake-fetch runtime and stored-history/
+client tests cover commercial prices, fences, failure recovery, private projection
+and malformed snapshots. The scratch old-HEAD/new public-v1 differential compares
+status/body/headers/cookies and durable counters; the intentional extra SDK effect
+is one read-only capability RPC for an absent attempt. No network, database,
+SQL/RLS/race execution or activation proof is claimed.
