@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { addConfiguredVariant, changeConfiguredQuantity, isConfiguredCartLine, persistConfiguredCart, type ConfiguredCart } from "@/app/lib/configured-cart";
+import { loadScopedCart } from "@/app/lib/configured-checkout";
+import type { ConfiguredStorefrontRead } from "@/app/lib/configured-storefront";
+const PublicPicker = dynamic(() => import("./configured-selection-client").then(module => module.ConfiguredSelection));
 import {
   addCartItem,
   cartTotalsByCurrency,
@@ -11,6 +16,7 @@ import {
   reconcileCart,
   setCartQuantity,
   type CartState,
+  type CartItem,
 } from "@/app/lib/storefront";
 import type { StorefrontCategory } from "@/app/lib/storefront-reader";
 import type { StorefrontPhoto } from "@/app/lib/storefront-photo";
@@ -180,4 +186,83 @@ export default function StorefrontClient({ businessId, categories, slug }: { bus
       </aside>
     </div>
   );
+}
+
+export function ConfiguredStorefrontClient({ catalog }: { catalog: Extract<ConfiguredStorefrontRead, { status: "ok" }> }) {
+  const businessId = catalog.storefront.business_id, slug = catalog.storefront.slug;
+  const scope = `${businessId}:${slug}`;
+  const [cart, setCart] = useState<ConfiguredCart>({ businessId, slug, items: [] });
+  const latest = useRef(cart);
+  const activeScope = useRef(scope);
+  const [loaded, setLoaded] = useState(false);
+  const [scoped, setScoped] = useState(false);
+  const [error, setError] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [pickerGeneration, setPickerGeneration] = useState(0);
+  const pickerToken = useRef(0);
+  useEffect(() => {
+    activeScope.current = scope;
+    try {
+      const saved = loadScopedCart(localStorage, businessId, slug);
+      latest.current = saved.cart; setCart(saved.cart); setScoped(saved.scoped);
+    } catch { setError(true); }
+    setLoaded(true);
+    return () => { activeScope.current = ""; pickerToken.current++; };
+  }, [businessId, slug, scope]);
+  function commit(next: ConfiguredCart) {
+    if (!loaded || error || activeScope.current !== scope) return false;
+    if (!persistConfiguredCart((key, value) => localStorage.setItem(key, value), next)) { setError(true); return false; }
+    latest.current = next; setCart(next); setScoped(true); return true;
+  }
+  function quantity(key: string, difference: number | null) {
+    const current = latest.current.items.find(line => line.key === key);
+    if (!current) return;
+    const changed = changeConfiguredQuantity(latest.current, key, difference === null ? 0 : current.quantity + difference);
+    if (changed.ok) commit(changed.cart);
+  }
+  const hasProfiles = Object.values(catalog.configurations).some(value => value.status !== "legacy");
+  if (!loaded) return <p>Cargando carrito…</p>;
+  if (!error && !scoped && !hasProfiles) return <StorefrontClient businessId={businessId} categories={catalog.categories} slug={slug} />;
+  const projection = selected ? catalog.configurations[selected] : null;
+  const token = pickerToken.current;
+  const totals = cart.items.reduce<Record<string, number>>((result, line) => {
+    result[line.currency] = (result[line.currency] ?? 0) + line.unitPriceMinor * line.quantity;
+    return result;
+  }, {});
+  return <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <section aria-label="Carta configurable" className="min-w-0 space-y-6">
+      <h2 className="text-2xl font-extrabold">Elegí tus productos</h2>
+      {catalog.categories.map(({ category, items }) => <section key={category.id} className="min-w-0"><h3 className="mb-3 text-xl font-bold">{category.name}</h3>
+        <div className="grid gap-3 sm:grid-cols-2">{items.map(item => {
+          const profile = catalog.configurations[item.id];
+          const legacy = profile?.status === "legacy" || catalog.capability === "legacy_only";
+          return <article key={item.id} className="min-w-0 rounded-xl border border-[var(--line)] bg-white p-4">
+            <div className="flex min-w-0 gap-3"><ProductMedia name={item.name} photo={item.photo} /><div className="min-w-0"><h4 className="break-words font-bold">{item.name}</h4><p className="break-words text-sm">{item.description}</p></div></div>
+            <p className="mt-3 text-sm font-bold">{legacy ? formatMoney(item.price_minor, item.currency) : profile?.status === "ready" ? "Elegí las variantes para ver el importe." : "Configuración no disponible por ahora."}</p>
+            {legacy ? <button type="button" disabled={error} className="mt-3 min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 font-bold disabled:opacity-50" onClick={() => {
+              const old = latest.current;
+              const classic = addCartItem({ businessId, items: old.items.filter((line): line is CartItem => !isConfiguredCartLine(line)) }, item);
+              const added = classic.items.find(line => line.key === item.id);
+              if (added) commit({ ...old, items: old.items.some(line => line.key === item.id) ? old.items.map(line => line.key === item.id ? added : line) : [...old.items, added] });
+            }}>Sumar {item.name}</button> : profile?.status === "ready" && <button id={`configure-${item.id}`} type="button" disabled={error} className="mt-3 min-h-11 rounded-lg border border-[var(--line)] px-4 py-2 font-bold disabled:opacity-50" onClick={() => { pickerToken.current++; setPickerGeneration(value => value + 1); setSelected(item.id); }}>Configurar {item.name}</button>}
+          </article>;
+        })}</div>
+      </section>)}
+      {selected && projection?.status === "ready" && <PublicPicker key={`${scope}:${selected}:${pickerGeneration}`} scope={`${scope}:${selected}`} catalog={projection.catalog} itemId={selected} disabled={error} onAccept={selection => {
+        if (activeScope.current !== scope || token !== pickerToken.current) return false;
+        const result = addConfiguredVariant(latest.current, { catalog: projection.catalog, itemId: selected, selection });
+        if (!result.ok || !commit(result.cart)) return false;
+        pickerToken.current++; setSelected(null); return true;
+      }} />}
+    </section>
+    <aside className="min-w-0 rounded-xl border border-[var(--line)] bg-white p-5" aria-label="Tu pedido">
+      <h2 className="text-xl font-bold">Tu pedido</h2>
+      {error && <p role="alert">No pudimos restaurar o guardar el carrito. No reemplazamos los datos guardados.</p>}
+      {cart.items.map(line => <section key={line.key} className="mt-4 min-w-0 border-b border-[var(--line)] pb-4"><p className="break-words font-bold">{line.quantity} × {line.name}</p><p className="break-words text-sm">{line.selectionText}</p><p>{formatMoney(line.unitPriceMinor * line.quantity, line.currency)} · Importe guardado, sujeto a revisión</p>
+        <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={error} className="min-h-11 rounded border px-3" aria-label={`Quitar una unidad de ${line.name}`} onClick={() => quantity(line.key, -1)}>−</button><button type="button" disabled={error} className="min-h-11 rounded border px-3" aria-label={`Agregar una unidad de ${line.name}`} onClick={() => quantity(line.key, 1)}>+</button><button type="button" disabled={error} className="min-h-11 rounded border px-3" onClick={() => quantity(line.key, null)}>Quitar producto</button></div>
+      </section>)}
+      {Object.entries(totals).map(([currency, total]) => <p key={currency} className="mt-4 font-bold">Importe guardado: {formatMoney(total, currency)}</p>)}
+      {!!cart.items.length && <a className="mt-5 block min-h-11 rounded-lg bg-[var(--lime)] px-4 py-3 text-center font-bold" href={`/store/${slug}/checkout`}>Continuar compra</a>}
+    </aside>
+  </div>;
 }

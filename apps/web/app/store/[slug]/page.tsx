@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import StorefrontClient from "../storefront-client";
-import { readStorefront } from "@/app/lib/storefront-reader";
+import { ConfiguredStorefrontClient } from "../storefront-client";
+import { readConfiguredStorefront } from "@/app/lib/configured-storefront-reader";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const result = await readStorefront(slug);
+  const result = await readConfiguredStorefront(slug);
   if (result.status === "not_found") notFound();
   if (result.status !== "ok") {
     const configured = result.status === "misconfigured";
@@ -35,7 +35,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--body-subtle)]">Productos disponibles para consultar y sumar a tu pedido.</p>
       </header>
       <div className="mx-auto max-w-6xl">
-        <StorefrontClient key={result.storefront.business_id} businessId={result.storefront.business_id} categories={result.categories} slug={result.storefront.slug} />
+        <ConfiguredStorefrontClient key={`${result.storefront.business_id}:${result.storefront.slug}`} catalog={result} />
       </div>
     </main>
   );

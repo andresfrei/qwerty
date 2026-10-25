@@ -1,8 +1,8 @@
-# Public configurations — reader, cart and corrected durable controller available but unmounted
+# Public configurations — storefront mounted; checkout and accepted display still classic
 
-SOURCE prefix only; reader, cart and corrected durable controller available but
-unmounted. No browser/CSS, remote activation or SQL/Auth/RLS/race proof. Independent
-SOURCE review was of final bytes, not this intermediate prefix.
+SOURCE prefix only; storefront mounted; checkout and accepted display still classic. No
+browser/CSS, remote activation or SQL/Auth/RLS/race proof. Independent SOURCE review was
+of final bytes, not this intermediate prefix.
 
 ## Public reader contract
 
@@ -134,6 +134,24 @@ unknown, correction, confirmed, unavailable and storage_error.
   empty scoped v3 tombstone only if the **currently preferred key and exact bytes**
   still match the submitted snapshot. An intervening v3 edit cannot be overwritten
   merely because an old v1 key remained unchanged. Old keys are not deleted.
+
+The reusable `ConfiguredSelection` component has props
+`{catalog:ProfileCatalog,itemId,scope,initial?,disabled?,label?,onAccept}`.
+`onAccept(selection):boolean` is synchronous: false keeps the choice editable;
+true locks that accepted choice until edited/reopened. The picker is lazily loaded
+with Next's existing dynamic loader, preserving classic imports/render behavior.
+Scope/item/line or independent component-instance keys and disposal guards reject
+stale callbacks. It renders native labeled controls, not a JSON inspector:
+
+- Pizza selects a size and one flavor plus optional second half; incompatible or
+  exhausted flavors are disabled. Identical halves resolve through T1 as one with
+  no fee. No base pizza price is shown as a configured selling price.
+- Dozen counters show the selected sum and require exactly twelve. Price is fixed.
+- Standard/legacy groups use their actual distinct/quantity controls.
+- Combo lists fixed products and every independent instance. Fixed groups are
+  displayed; permitted variant controls honor allowlists. No substitutions,
+  recursive items or child charges. T1 validates the complete choice and computes
+  the live parent price. Invalid/incomplete choices cannot invoke accepted add.
 
 ## B1 bounded correction candidate
 
