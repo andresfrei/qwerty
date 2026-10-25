@@ -5,8 +5,9 @@
 The navigation/query foundation is prepared first. Its section components are not
 yet mounted in the legacy catalog: no links to unfinished pages are advertised.
 Record routes and form integration remain subsequent work units. A server-only,
-injectable taxonomy/Products read slice now exists; T3 is still partial (bounded
-choices and their HTTP integration are not implemented).
+injectable taxonomy/Products read slice and bounded choices GET endpoint now exist.
+T3's data foundation covers category/component/group selection; selector widgets,
+form integration and mounted resource pages remain T4–T6 work.
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -62,7 +63,7 @@ Supported resource/mode combinations:
   `business_catalog_settings`; successful absence means surcharge zero.
 
 Groups/new Options contextual requirements are narrower than the navigation
-parser. Category/component choices remain a future unit. This taxonomy API's
+parser. Category/component choices use the bounded HTTP contract below. This taxonomy API's
 view resource type excludes Products; use the separate reader below. Unsupported
 runtime requests return `invalid`. Item-only Options filtering uses the existing
 inner group relationship, not an incomplete group-ID selector. Directory parent
@@ -146,6 +147,84 @@ Malformed active kind fails closed, never name-inferred. This metadata does not
 validate a full configuration or replace the selected editor's existing reader.
 Empty pages/new do not query item profiles. Every returned field is projected;
 SDK extras/private documents are not returned.
+
+## Bounded choices HTTP contract (frozen T3 → T4/T5/T6)
+
+`GET /owner/catalog/choices` is read-only, dynamic and session-role only.
+`catalog/catalog-choice-query.ts` exports `CatalogChoiceQuery` and
+`parseCatalogChoiceQuery(URLSearchParams): CatalogChoiceQuery | null`.
+The separate exact query accepts only:
+
+- `selectedBusinessId`: required UUID, normalized lowercase; **no default store**.
+- `kind`: required literal `categories|items|groups`, never a table/resource URL.
+- `q`: optional, default `""`; trimmed, maximum 100 characters, no controls.
+- `page`: optional, default 0; canonical zero-based integer through 1000000.
+- `itemId`: required UUID for `groups`, forbidden otherwise, normalized lowercase.
+
+Duplicates, unknown fields, arrays encoded as bracket keys, malformed/context-free
+IDs and noncanonical pages fail before client creation. `businessId`, `storePage`,
+`groupId`, arbitrary return URLs and other kinds are not accepted. Existing shared
+owner/mutation parsers remain strict and unchanged.
+
+`catalog/catalog-choices-gateway.ts` exports `CatalogChoice`, `CatalogItemChoice`,
+`CatalogChoicesDTO`, `CatalogChoicesDependencies`, `createCatalogChoicesGateway`
+and `handleCatalogChoicesRequest`. A successful JSON body is exactly:
+
+```ts
+{
+  selectedBusinessId: string;
+  q: string; // normalized search; completeness applies to these matches only
+  pagination: {
+    page: number; pageSize: 25; total: number; hasMore: boolean;
+    pageComplete: true; collectionComplete: boolean;
+  };
+} & (
+  | { kind: "categories"; rows: { id: string; label: string }[] }
+  | { kind: "items"; rows: {
+      id: string; label: string;
+      itemKind: "legacy" | "standard" | "pizza" | "dozen" | "combo";
+      isAvailable: boolean;
+    }[] }
+  | { kind: "groups"; itemId: string; rows: { id: string; label: string }[] }
+)
+```
+
+The exported pagination type is the existing `CatalogPagePagination` (its
+`pageSize` is typed `number`; runtime size is fixed at 25). Items expose explicit
+kind/availability, not inferred names or eligibility guarantees. Inactive/absent
+profiles are `legacy`; typed-missing capability also retains legacy behavior.
+No full item, category object, profile version/document, component matrix,
+photo path, account, owned-business list or parent object is serialized.
+
+The gateway reuses `resolveOwnerContext` for fresh confirmed-owner scope and the
+configuration route's verified-refresh notification. The existing N2/N3 page
+readers then perform their own fresh dashboard authorization; no cached owner,
+second-business fallback or alternate catalog query implementation is introduced.
+Groups require a scoped existing item before reading its groups. Categories use
+one counted page; Items reuse bounded profile metadata/category batches; Groups
+use an item singleton plus one counted group page. No mutation RPC or retry is
+available; the only Items RPC is the existing read-only capability probe, once.
+
+Every response carries JSON, `private, no-store`, `Pragma: no-cache`, `Expires: 0`,
+`Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, and no CORS grant.
+GET allows omitted Origin or exactly the configured same origin; trusted target,
+host/forwarding, method, query and absent body are checked before identity.
+Unsupported methods return `405 {error:"method_not_allowed"}`, `Allow: GET`.
+Rejected target/origin returns `400 {error:"request_rejected"}`; malformed query
+or GET body/encoding/nonzero content length returns `400 {error:"invalid_request"}`.
+Unverified identity returns `401 {error:"unauthorized"}`; missing/foreign selected
+business or item parent returns `404 {error:"not_found"}`. Missing configuration,
+provider/count/shape/truncation failures return `503 {error:"unavailable"}` without
+private details or partial rows. Staged session refresh is discarded for rejected
+ingress/unverified identity, but retained after confirmed identity on late 404/503.
+
+Consumers must request later pages/search explicitly: page zero is not a full
+selector unless `collectionComplete` is true (only for that query). Search across
+matches does not establish global completeness. Keep previously selected IDs
+separately; this endpoint does not resolve a selected ID outside the current page.
+Use prior scoped detail/configuration readers for existing selections and final
+validation. Never automatically repeat writes after a choice fetch or claim a
+choice grants mutation authority. No React selector/page is mounted by T3.
 
 ## Focused verification
 
