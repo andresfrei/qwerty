@@ -7,7 +7,9 @@ The legacy catalog has not been cut over; no links to unfinished pages are adver
 T5 now has Products list/new/detail, paged category choices, category changes,
 GET filters and the selected record's advanced profile editor with paged component
 choices. Server-only taxonomy/Products readers and the bounded choices GET endpoint
-exist. Taxonomy/settings pages and root/store navigation cutover remain T6–T7 work.
+exist. The first T6 slice adds Categories list/new/detail and singleton Catalog
+settings. Contextual Groups/Options pages remain T6 work; root/store navigation
+cutover remains T7 work.
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -336,11 +338,62 @@ classification and pizza/dozen/standard/matrix/pricing rules remain unchanged.
 See [owner-catalog-configurations.md](owner-catalog-configurations.md) for the
 legacy/paged prop contract and controller limits.
 
-The scoped Products source consumers are implemented, but the final T5 verdict
-awaits parent review of the mounted selected-label correction; the original75/75
-missed that consumer display assertion. This is not full Catalog or live acceptance. Root entry/shared store-switch integration and mounted-flow verification
-remain T7; these pages do not change OwnerShell's current root destinations.
-S1/S4 overall still require the taxonomy/settings pages and integration.
+The scoped Products source consumers and selected-label correction are accepted
+as T5 source integration (spec L18). The original75/75 missed that consumer display
+assertion. This is not full Catalog or live acceptance. Root entry/shared
+store-switch integration and mounted-flow verification remain T7; these pages do
+not change OwnerShell's current root destinations. S1/S4 overall still require
+contextual Groups/Options pages and integration.
+
+## Categories and Catalog settings UI (first T6 slice)
+
+`/owner/catalog/categories`, `/owner/catalog/categories/new`,
+`/owner/catalog/categories/[categoryId]` and `/owner/catalog/settings` are dynamic
+server leaves. They await promised parameters and use a request-local session SDK
+through the frozen `loadCatalogTaxonomyPage`. Invalid, missing, denied and provider
+failures never become an empty list or default settings. Only a ready result gets
+an opaque server nonce and the fresh owner/business frame identity. The nonce is
+not a freshness proof after a save; the existing N6 navigation policy is unchanged.
+
+`catalog-taxonomy-page.tsx` exports `CatalogTaxonomyPage({search,view})` and
+`CatalogTaxonomySliceView`, currently restricted to Categories/Settings.
+`catalog-taxonomy-view.tsx` exports `CatalogTaxonomyView({result,readKey})` and
+`CatalogCategorySummary({category})`. The view rejects other resources rather than
+presenting an empty working Groups/Options branch. Later contextual consumers can
+extend these files using the reader's checked `parents.item`/`parents.group` and
+actual record identity; no new routes or unfinished-section links ship here.
+
+Category summaries show only actual name and sort order. Exact-count 25-row pages
+and escaped search are supplied by the frozen reader. Back/detail/new/page links
+retain businessId/storePage/q/page, but q/page never narrow detail identity.
+`catalog-taxonomy-controls.tsx` exports `CatalogCategorySearch({scopeKey,businessId,
+query})`: an unnamed search input in a standalone native fieldset, with explicit
+validated GET-link application resetting page to zero. It does not nest a form or
+provide a native reload escape. Search/paging/detail/back reuse the generic
+`CatalogProductReadLink` behavior: idle guarded navigation, locked scoped
+inspection, and a native GET only after a known save. Creation remains a guarded
+link to the actual New route, never an uncertain-outcome retry.
+
+New mounts one classic create_category form with the selected business UUID as
+parent; no created-ID inference or lookup. Detail mounts only the selected
+record's rename_category and reorder_category forms, using its actual ID and one
+N6 shared gate. Existing Field/defaults/model/POST transport are reused unchanged.
+Read-only arrivals contain summaries and zero mutation widgets. The origin's
+pending/unknown inputs stay mounted and disabled; known rejection retains inputs.
+
+Settings is a singleton, not an artificial list or new-record route. It shows the
+fresh selected storefront publication and fixed two-flavor surcharge. Configured
+storefronts expose the unchanged set_published toggle; set_two_flavor_surcharge
+uses moneyText and the existing decimal-to-minor parser. Both identities target
+the actual business singleton and share N6's gate. Only a successfully absent
+settings row becomes zero; a provider failure exposes no form. No notification,
+printing, Cash, deletion, drag ordering or new business-settings model is added.
+
+The isolated `owner-catalog-taxonomy-ui.test.mjs` fixture exercises the public
+pages, rendered fields through the existing model/POST, lock slot selection,
+bounded paging/query shape and failure envelopes. This is synthetic/static proof,
+not browser hydration, live authorization/RLS, visual viewport or real-account
+acceptance. T6 is partial; Groups/Options and T7 navigation integration remain.
 
 ## Classic form foundation (T4 contracts)
 
