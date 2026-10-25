@@ -7,6 +7,27 @@ Dependencies are installed; the new layout is not yet integrated or accepted.
 Auth, existing record-editing forms and saved/unknown operation lifecycles are not
 being migrated. Existing nested Catalog sidebar working changes are preserved.
 
+## Presentation foundations
+
+`ResourceListLayout` composes a title/context, toolbar, result area and footer.
+Its slots contain resource-owned links and controls, not a generic CRUD engine.
+It imposes no narrow reading-width limit on a listing.
+
+The client `ResourceTable` uses actual Table v9 feature types and semantic table
+markup. It receives scoped rows, column definitions, certified `rowCount` and
+`pageIndex`; `manualPagination`/`manualFiltering` retain all supplied rows in server
+order. No client sorted/filtered/paginated row models or fetching are enabled.
+Pagination links remain with each resource. Responsive column classes may hide
+secondary columns while keeping primary content readable.
+
+Foundation public SSR tests:
+
+```sh
+node --test apps/web/tests/owner-list-table.test.mjs
+```
+
+These components are not yet mounted by the current Products page.
+
 ## Dependencies
 
 - `@tanstack/react-table` **9.3.1**: headless table rendering; v9 feature/generic APIs.
