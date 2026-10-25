@@ -8,6 +8,18 @@ const reject = (c, i, s) => { const before = structuredClone({c, s}); const resu
 test('public domain APIs exist independently of the pricing consumer', () => {
   for (const name of ['parseProfileDocument', 'validateProfileConfiguration', 'validateProfileSelection', 'canonicalProfileSelectionKey']) assert.equal(typeof domain[name], 'function', name);
 });
+test('public structural selection parser is bounded, fresh and catalog independent', () => {
+  assert.equal(typeof domain.parseProfileSelection, 'function');
+  const f = fixture();
+  for (const selection of [f.pizza, f.combo, { ...f.pizza, profileVersion: 999 }]) {
+    const parsed = domain.parseProfileSelection(frozen(selection)); assert.equal(parsed.ok, true); assert.deepEqual(parsed.value, selection); assert.notEqual(parsed.value, selection);
+  }
+  for (const selection of [null, { ...f.pizza, extra: true }, { ...f.pizza, groups: 'x'.repeat(262145) }]) {
+    assert.deepEqual(domain.parseProfileSelection(selection), { ok: false, errors: [{ code: 'invalid_selection', path: 'selection' }] });
+  }
+  const cyclic = {}; cyclic.groups = cyclic; assert.equal(domain.parseProfileSelection(cyclic).ok, false);
+});
+
 test('L8 fixed-choice availability is purchase state, not catalog structure', () => {
   for (const kind of ['flavor', 'size', 'child']) {
     const f = unavailableFixedComboFixture(kind), before = structuredClone(f);

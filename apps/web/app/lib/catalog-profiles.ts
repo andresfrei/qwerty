@@ -237,6 +237,14 @@ function parseSelection(input: unknown, child = false): ProfileSelection | null 
   return { kind: "combo", profileVersion: input.profileVersion, components };
 }
 
+// Structural boundary for replay identity before any current-catalog lookup.
+// Keep catalog-dependent cardinality, availability and versions in validation.
+export function parseProfileSelection(input: unknown): ProfileResult<ProfileSelection> {
+  if (!bounded(input, PROFILE_MAX_JSON_BYTES)) return profileFailure("invalid_selection", "selection");
+  const selection = parseSelection(input);
+  return selection ? { ok: true, value: selection } : profileFailure("invalid_selection", "selection");
+}
+
 export function legacyProfileRequest(resolved: ResolvedProfileSelection): SelectionRequest {
   const { catalog: c, item, selection } = resolved;
   const groups = c.groups.filter(g => g.item_id === item.id);
