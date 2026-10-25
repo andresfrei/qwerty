@@ -16,8 +16,8 @@ const pendingLabels: Readonly<Record<string, string>> = {
 };
 
 type Control = HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement | HTMLFieldSetElement;
-type Decoration = { button: HTMLButtonElement; nodes: Node[]; content: HTMLElement; label: HTMLElement; idle: string; className: string | null; busy: string | null };
-type Feedback = { decorations: Decoration[]; status: HTMLElement; pending: boolean; controls: Map<Control, boolean> };
+type Decoration = { button: HTMLButtonElement; nodes: Node[]; content: HTMLElement; label: HTMLElement; idle: string; className: string | null; busy: string | null; preRendered: boolean };
+type Feedback = { decorations: Decoration[]; status: HTMLElement; ownsStatus: boolean; pending: boolean; controls: Map<Control, boolean> };
 
 function operation(form: HTMLFormElement, submitter?: HTMLElement | null) {
   const action = submitter?.getAttribute("formaction") ?? form.getAttribute("action") ?? "";
@@ -41,6 +41,7 @@ export function enhanceNativeAuthForms(doc: Document): () => void {
     if (value === null) node.removeAttribute(name); else node.setAttribute(name, value);
   }
   function restore(feedback: Feedback) {
+    if (!feedback.pending) return;
     for (const [control, disabled] of feedback.controls) control.disabled = disabled;
     feedback.controls.clear();
     feedback.pending = false;
@@ -61,10 +62,12 @@ export function enhanceNativeAuthForms(doc: Document): () => void {
   function release(form: HTMLFormElement, feedback: Feedback) {
     restore(feedback);
     form.removeEventListener("formdata", serialize);
-    feedback.status.remove();
-    for (const { button, nodes, className } of feedback.decorations) {
-      button.replaceChildren(...nodes);
-      restoreAttribute(button, "class", className);
+    if (feedback.ownsStatus) feedback.status.remove();
+    for (const { button, nodes, className, preRendered } of feedback.decorations) {
+      if (!preRendered) {
+        button.replaceChildren(...nodes);
+        restoreAttribute(button, "class", className);
+      }
     }
     forms.delete(form);
   }
@@ -81,29 +84,45 @@ export function enhanceNativeAuthForms(doc: Document): () => void {
         if (control.tagName !== "BUTTON") continue;
         const button = control as HTMLButtonElement;
         if (button.type !== "submit" || operation(form, button) !== pendingLabel) continue;
-        const idle = button.textContent ?? "";
-        const nodes = Array.from(button.childNodes);
-        const content = span("async-action-content");
-        for (const text of [idle, pendingLabel]) {
-          const reserve = span("async-action-reserve", text);
-          reserve.setAttribute("aria-hidden", "true");
-          content.append(reserve);
+        const preRendered = button.hasAttribute("data-native-auth-feedback");
+        let content: HTMLElement;
+        let label: HTMLElement;
+        if (preRendered) {
+          const existingContent = button.querySelector<HTMLElement>(".async-action-content");
+          const existingLabel = existingContent?.querySelector<HTMLElement>(".async-action-label");
+          if (!existingContent || !existingLabel) continue;
+          content = existingContent;
+          label = existingLabel;
+        } else {
+          content = span("async-action-content");
+          label = span("async-action-label");
         }
-        const label = span("async-action-label");
-        label.append(...nodes);
-        content.append(label);
+        const idle = (preRendered ? label : button).textContent ?? "";
+        const nodes = Array.from((preRendered ? label : button).childNodes);
         const className = button.getAttribute("class");
-        button.classList.add("async-action");
-        button.append(content);
-        decorations.push({ button, nodes, content, label, idle, className, busy: button.getAttribute("aria-busy") });
+        if (!preRendered) {
+          for (const text of [idle, pendingLabel]) {
+            const reserve = span("async-action-reserve", text);
+            reserve.setAttribute("aria-hidden", "true");
+            content.append(reserve);
+          }
+          label.append(...nodes);
+          content.append(label);
+          button.classList.add("async-action");
+          button.append(content);
+        }
+        decorations.push({ button, nodes, content, label, idle, className, busy: button.getAttribute("aria-busy"), preRendered });
       }
       if (!decorations.length) continue;
-      const status = span("async-action-status");
-      status.setAttribute("role", "status");
-      status.setAttribute("aria-live", "polite");
-      status.setAttribute("aria-atomic", "true");
-      form.append(status);
-      forms.set(form, { decorations, status, pending: false, controls: new Map() });
+      const existingStatus = form.querySelector<HTMLElement>("[data-native-auth-feedback-status]");
+      const status = existingStatus ?? span("async-action-status");
+      if (!existingStatus) {
+        status.setAttribute("role", "status");
+        status.setAttribute("aria-live", "polite");
+        status.setAttribute("aria-atomic", "true");
+        form.append(status);
+      }
+      forms.set(form, { decorations, status, ownsStatus: !existingStatus, pending: false, controls: new Map() });
       form.addEventListener("formdata", serialize);
     }
   }

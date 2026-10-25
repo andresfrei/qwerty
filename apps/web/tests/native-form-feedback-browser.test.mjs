@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import test from "node:test";
 import ts from "typescript";
+import { ownerHydrationReplay } from "./native-feedback-hydration-fixture.mjs";
 
 // Use the already installed CLI's browser engine; no installation or TLS bypass.
 const cli = realpathSync(execFileSync("which", ["playwright-cli"], { encoding: "utf8" }).trim());
@@ -37,6 +38,7 @@ test("native replay: anonymous HTML only, all requests fulfilled before any navi
       if (js) await page.addScriptTag({ content: `{const exports={};const require=(name)=>{if(name==='react')return {useEffect(){throw Error('mount not used in replay')}};throw Error(name)};${enhancement};window.cleanup=exports.enhanceNativeAuthForms(document);}` });
       return { page, context, posts };
     }
+    await t.test("OwnerShell hydrates after root feedback without idle DOM mutation", () => ownerHydrationReplay(browser));
     await t.test("browser validation does not lock; same-tick duplicates preserve exact native named entry list", async () => {
       const { page, context, posts } = await pageFor(actions[0]);
       try {

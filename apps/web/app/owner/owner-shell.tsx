@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NativeAuthButton } from "../components/native-auth-button";
 import { catalogHref, catalogStoreHref, type CatalogQuery, type CatalogView } from "./catalog/catalog-navigation";
 import { CatalogSectionNav } from "./catalog/catalog-navigation-view";
 import { ownerHref, type OwnerBusiness } from "./owner-context";
@@ -53,7 +54,7 @@ export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pa
       <nav aria-label="Menú principal" className="mt-6 grid grid-cols-2 gap-1 lg:grid-cols-1">{modules.map(([module, label]) =>
         <a key={module} className={`${link} ${module === activeModule ? "bg-[var(--lime)]" : ""}`} href={ownerHref(module, selectedBusiness?.id)} aria-current={module === activeModule ? "page" : undefined}>{label}</a>
       )}</nav>
-      <form action="/auth/logout" method="post" className="mt-6"><button className={`${link} w-full border border-[var(--line)] text-left`} type="submit">Cerrar sesión</button></form>
+      <form action="/auth/logout" method="post" className="mt-6"><NativeAuthButton className={`${link} w-full border border-[var(--line)] text-left`} pendingLabel="Cerrando sesión…">Cerrar sesión</NativeAuthButton></form>
     </aside>
     <main className="min-w-0 px-5 py-8 sm:px-8 lg:p-12"><div className="mx-auto max-w-4xl">
       {catalog && <CatalogSectionNav section={catalog.view.resource === "groups" ? "items" : catalog.view.resource} query={catalog.query} />}

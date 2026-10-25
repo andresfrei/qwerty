@@ -7,7 +7,23 @@ Enhance the existing native Auth/logout forms without replacing browser submissi
 `apps/web/app/components/async-action.ts` exports:
 
 - `NativeFormFeedback(): null`: active client hook-only mount, imported directly by `apps/web/app/layout.tsx`.
-- `enhanceNativeAuthForms(doc: Document): () => void`: initializes decoration/listeners and returns cleanup.
+- `enhanceNativeAuthForms(doc: Document): () => void`: adopts declarative native feedback or decorates legacy plain HTML, installs listeners and returns cleanup.
+
+### Hydration-safe OwnerShell logout
+
+`components/native-auth-button.tsx` renders the OwnerShell logout's idle label,
+hidden width reserves and empty polite status in SSR. The client expects exactly
+that markup. `data-native-auth-feedback` identifies the button and
+`data-native-auth-feedback-status` the form status. Discovery adopts those nodes
+without idle text, class, child or status writes. Idle pageshow/StrictMode cleanup
+also leaves declarative nodes intact; after a native pending operation it restores
+the original idle nodes/attributes but never removes server-owned markup.
+
+The previous root scan imperatively inserted the reserves/status before a streamed
+OwnerShell descendant hydrated, producing `Cerrar sesiónCerrando sesión…Cerrar sesión`
+and a recoverable hydration failure. No timer or hydration-warning suppression is
+used. Auth pages/endpoints remain untouched: their legacy plain-HTML enhancement
+path is preserved, not a claim of Next hydration acceptance for every Auth page.
 
 The browser replay transpiles this actual implementation. The old writer-created `native-form-feedback.ts` and `.tsx` shims were reversibly archived under `.pi/async-action-feedback/foundation/retired-entrypoints/`; no duplicate entry files remain in application source.
 
@@ -31,13 +47,45 @@ Only native submit **buttons** are decorated. External form-associated buttons a
 4. Only the browser's `formdata` event disables interfering native controls. At this point the browser has already constructed its successful entry list, including the named submitter and hidden fields. The event's data is never inspected.
 5. Navigation/server results remain browser/domain-owned. An unknown outcome does not automatically unlock. `pageshow` (including back/forward restoration) restores prior disabled/aria-busy state and idle decoration. Cleanup additionally restores original button nodes/classes and removes owned listeners/status.
 
-Without JavaScript, root markup is unchanged and forms remain native. No route loader, global overlay, toast, framework, network manager, retry or trust change is introduced. Direct `form.submit()` bypasses submit events and is not enhanced; use normal browser submission or `requestSubmit()`.
+Without JavaScript, declarative feedback stays idle and all forms remain native. No route loader, global overlay, toast, framework, network manager, retry or trust change is introduced. Direct `form.submit()` bypasses submit events and is not enhanced; use normal browser submission or `requestSubmit()`.
 
 
 ## Verification and limits
+
+### OwnerShell hydration repair
+
+The reported logout class/text mismatch was reproduced with the real shell,
+React development StrictMode, root feedback and `hydrateRoot`, then passed after
+SSR ownership was added. Idle DOM is identical before hydration; pending native
+logout, one POST/duplicate cancellation, stable dimensions and pageshow/cleanup
+retain the original SSR markup. Unrelated routing adapters are fixture doubles,
+not a real Next RSC/streaming/authenticated page.
+
+The final browser launch passed7/7, including a nonshipping previous/current
+differential of all five native actions: identical named payloads, request counts,
+cancellation, DOM, pending, restoration and cleanup. The four legacy native cases
+are unchanged. Focused source83/83, TypeScript and three-file Biome checks passed;
+independent verification passed5/5 and S1/S2 without blocking findings. These sets
+overlap and must not be summed as unique tests.
+
+All three explicitly authorized browser launches are retained: the first failed
+on a fixture UTF-8 omission, the second reproduced the exact application mismatch,
+and the third passed. The initial focused command timed out at30s and its new SSR
+assertion incorrectly required attribute order; the explicitly reauthorized90s
+run passed83/83 in26s after correcting the assertion. No automatic retries.
+
+No live account/Auth/RLS/Next RSC or clean-checkout acceptance, full suite/build,
+new dependencies, server/proxy restart or publication is claimed. Evidence and
+user authorizations are in [native-feedback-hydration.md](../odd/tasks/native-feedback-hydration.md);
+`.pi/native-feedback-hydration/` artifacts are local only and do not ship.
+
+### Earlier foundation proof
 
 The one authorized foundation bundle passed9/9: four presentation tests, four native cases and their parent. Browser-owned named payload, validation, immediate duplicate suppression, no-JS, cleanup, detached-form reinsertion, stable dimensions, reduced motion and synthetic pageshow restoration were reached. Independent review matched all six validated candidate hashes and inspected this boundary without rerunning the consumed bundle.
 
 The explicit browser-test command uses the already-installed global playwright-cli Chromium engine. It is not a project dependency installation or permission to change TLS trust. Replay fulfills/aborts every request on a fictional origin; it proves neither real TLS/Auth/redirects nor actual BFCache. Historical failures and the single corrected run remain under .pi/async-action-feedback/foundation/. Protected untracked Auth is not adopted, and no clean-checkout runtime is claimed.
 
-Risk: item2 (native successful-control serialization). Bounded independent source review passed; native assessment remains unassessable/RDDoff, not native approval. Real visual QA stays manual by the user's accepted delivery scope.
+Foundation risk: item2 (native successful-control serialization). Hydration repair
+risk: item3 (shared native-feedback consumers). Independent source/contract review
+passed; native assessment remains unassessable/RDDoff, not native approval. Real
+account/Next integration QA remains separate.
