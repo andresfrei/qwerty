@@ -48,6 +48,7 @@ export function CatalogProductView({ result, readKey }: { result: Ready; readKey
       </nav>
     </> : data.kind === "detail" ? <>
       <CatalogProductReadLink href={listHref} businessId={owner.business.id}>Volver a productos</CatalogProductReadLink>
+      <CatalogProductReadLink href={catalogHref("groups", { businessId: page.businessId, storePage: query.storePage, itemId: data.record.id })} businessId={page.businessId}>Grupos del producto</CatalogProductReadLink>
       <CatalogInspectionLink href={listHref} businessId={owner.business.id}>Consultar catálogo</CatalogInspectionLink>
       <CatalogFormFrame page={page} readOnly={<div className={card}><CatalogProductSummary item={data.record} /></div>}
         editable={<>

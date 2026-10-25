@@ -64,6 +64,16 @@ test('only selected detail mounts one keyed paged profile, never a partial produ
   assert.equal(creation.editors.filter(e => e.profile).length, 0);
 });
 
+test('selected product detail exposes its real contextual Groups route without origin category leakage', async () => {
+  const f = products();
+  const html = f.markup(await f.page('detail')({ params: Promise.resolve({ itemId }), searchParams: Promise.resolve(f.search) }));
+  assert.match(html, /Grupos del producto/);
+  const destination = html.match(/href="([^"]*\/groups\?[^"]*)"/)[1].replaceAll('&amp;', '&');
+  const url = new URL(destination, 'https://qwerty.invalid');
+  assert.equal(url.searchParams.get('itemId'), itemId); assert.equal(url.searchParams.get('businessId'), businessId);
+  assert.equal(url.searchParams.get('storePage'), '2'); assert.equal(url.searchParams.has('categoryId'), false);
+});
+
 test('read-only arrival has no classic/photo/profile widget invocations', async () => {
   const f = products({ readOnly: true });
   const html = f.markup(await f.page('detail')({ params: Promise.resolve({ itemId }), searchParams: Promise.resolve(f.search) }));

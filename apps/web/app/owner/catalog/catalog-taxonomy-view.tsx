@@ -3,9 +3,11 @@ import { moneyText } from "./catalog-editor";
 import { CatalogFormFrame, CatalogScopedForm } from "./catalog-form-scope";
 import { CatalogInspectionLink, CatalogLink } from "./catalog-form-navigation";
 import { catalogHref } from "./catalog-navigation";
-import type { CatalogTaxonomyPage, CategorySummary } from "./catalog-page-data";
+import type { CatalogTaxonomyPage, CategorySummary, GroupSummary } from "./catalog-page-data";
 import { CatalogProductReadLink } from "./catalog-product-filters";
 import { CatalogCategorySearch } from "./catalog-taxonomy-controls";
+import { CatalogGroupForm } from "./catalog-option-forms";
+import type { CatalogGroupCreationContext } from "./catalog-taxonomy-page";
 
 type Ready = Extract<CatalogTaxonomyPage, { kind: "ready" }>;
 const card = "grid min-w-0 gap-4 rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6";
@@ -15,6 +17,59 @@ export function CatalogCategorySummary({ category }: { category: CategorySummary
     <strong className="break-words text-lg">{category.name}</strong>
     <p>Orden {category.sort_order}</p>
   </div>;
+}
+
+export function CatalogGroupSummary({ group }: { group: GroupSummary }) {
+  return <div className="grid gap-2 text-sm">
+    <strong className="break-words text-lg">{group.name}</strong>
+    <p>{group.selection_mode === "quantity" ? "Unidades" : "Opciones distintas"} · Mínimo {group.min_select} · Máximo {group.max_select} · Orden {group.sort_order}</p>
+  </div>;
+}
+
+export function CatalogGroupCreationView({ context, readKey }: { context: CatalogGroupCreationContext; readKey: string }) {
+  const { owner, request } = context;
+  const page = { accountId: owner.account.id, businessId: owner.business.id, readKey };
+  const query = { ...request.query, businessId: page.businessId };
+  return <section className="mx-auto mt-14 grid max-w-3xl gap-6">
+    <h1 className="text-4xl font-[750] tracking-[-0.07em]">Nuevo grupo · {owner.business.name}</h1>
+    <CatalogProductReadLink href={catalogHref("items", { businessId: page.businessId, storePage: query.storePage })} businessId={page.businessId}>Volver a productos</CatalogProductReadLink>
+    <CatalogFormFrame page={page} readOnly={<p>Nuevo grupo · Consulta en modo solo lectura. No repitas el envío.</p>}
+      editable={<CatalogGroupForm scopeKey={JSON.stringify(page)} businessId={page.businessId} item={null} query={query} />} />
+  </section>;
+}
+
+function CatalogGroupView({ result, readKey }: { result: Ready; readKey: string }) {
+  const { owner, request, data } = result;
+  if (data.kind === "settings" || !data.parents.item) throw Error("missing_checked_group_parent");
+  const item = data.parents.item;
+  const query = { ...request.query, businessId: owner.business.id, itemId: item.id };
+  const page = { accountId: owner.account.id, businessId: owner.business.id, readKey };
+  const listHref = catalogHref("groups", query);
+  const record = data.kind === "detail" ? data.record as GroupSummary : undefined;
+  return <section className="mx-auto mt-14 grid max-w-3xl gap-6" aria-labelledby="groups-title">
+    <header><p className="text-xs font-extrabold uppercase tracking-wider text-[var(--olive)]">Catálogo · {owner.business.name}</p>
+      <h1 id="groups-title" className="mt-3 text-4xl font-[750] tracking-[-0.07em]">{record?.name ?? (data.kind === "new" ? "Nuevo grupo" : "Grupos del producto")}</h1>
+      <p className="mt-3 break-words">Producto: {item.name}</p></header>
+    <CatalogProductReadLink href={catalogHref("items", { businessId: page.businessId, storePage: query.storePage }, { mode: "detail", id: item.id })} businessId={page.businessId}>Volver al producto</CatalogProductReadLink>
+    {data.kind === "list" ? <>
+      <CatalogLink href={catalogHref("groups", query, { mode: "new" })} className="min-h-11 py-2 font-extrabold underline">Nuevo grupo</CatalogLink>
+      <CatalogCategorySearch scopeKey={JSON.stringify(page)} businessId={page.businessId} query={query} resource="groups" />
+      <p className="text-sm">{data.pagination.total} grupos · Página {data.pagination.page + 1}</p>
+      {data.rows.length ? <ul className="grid gap-4">{data.rows.map(row => <li key={row.id} className={card}>
+        <CatalogGroupSummary group={row as GroupSummary} />
+        <CatalogProductReadLink href={catalogHref("groups", query, { mode: "detail", id: row.id })} businessId={page.businessId}>Abrir grupo</CatalogProductReadLink>
+      </li>)}</ul> : <p>No hay grupos en esta página.</p>}
+      <nav aria-label="Páginas de grupos" className="flex flex-wrap gap-4 font-extrabold underline">
+        {query.page > 0 && <CatalogProductReadLink href={catalogHref("groups", { ...query, page: query.page - 1 })} businessId={page.businessId}>Anterior</CatalogProductReadLink>}
+        {data.pagination.hasMore && <CatalogProductReadLink href={catalogHref("groups", { ...query, page: query.page + 1 })} businessId={page.businessId}>Siguiente</CatalogProductReadLink>}
+      </nav>
+    </> : <>
+      <CatalogProductReadLink href={listHref} businessId={page.businessId}>Volver a grupos</CatalogProductReadLink>
+      <CatalogInspectionLink href={listHref} businessId={page.businessId}>Consultar catálogo</CatalogInspectionLink>
+      <CatalogFormFrame page={page} readOnly={record ? <div className={card}><CatalogGroupSummary group={record} /></div> : <p>Nuevo grupo · Solo lectura. No repitas el envío.</p>}
+        editable={<CatalogGroupForm scopeKey={JSON.stringify(page)} businessId={page.businessId} item={item} group={record} query={query} />} />
+    </>}
+  </section>;
 }
 
 function SettingsSummary({ data }: { data: Extract<Ready["data"], { kind: "settings" }> }) {
@@ -27,9 +82,10 @@ function SettingsSummary({ data }: { data: Extract<Ready["data"], { kind: "setti
   </div>;
 }
 
-/** Only implemented resource leaves are accepted; contextual Groups/Options are a later slice. */
+/** Only implemented resource leaves are accepted; Options remains a later slice. */
 export function CatalogTaxonomyView({ result, readKey }: { result: Ready; readKey: string }) {
   const { owner, request, data } = result;
+  if (request.resource === "groups") return <CatalogGroupView result={result} readKey={readKey} />;
   if (request.resource !== "categories" && request.resource !== "settings") throw Error("unsupported_taxonomy_view");
   const query = { ...request.query, businessId: owner.business.id };
   const listHref = catalogHref(request.resource, query);

@@ -8,8 +8,9 @@ T5 now has Products list/new/detail, paged category choices, category changes,
 GET filters and the selected record's advanced profile editor with paged component
 choices. Server-only taxonomy/Products readers and the bounded choices GET endpoint
 exist. The first T6 slice adds Categories list/new/detail and singleton Catalog
-settings. Contextual Groups/Options pages remain T6 work; root/store navigation
-cutover remains T7 work.
+settings. A second partial T6 slice adds contextual Groups list/new/detail and
+its selected-product entry link. Options pages remain T6 work; root/store
+navigation cutover remains T7 work.
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -343,7 +344,7 @@ as T5 source integration (spec L18). The original75/75 missed that consumer disp
 assertion. This is not full Catalog or live acceptance. Root entry/shared
 store-switch integration and mounted-flow verification remain T7; these pages do
 not change OwnerShell's current root destinations. S1/S4 overall still require
-contextual Groups/Options pages and integration.
+the central/contextual Options pages and integration.
 
 ## Categories and Catalog settings UI (first T6 slice)
 
@@ -356,10 +357,10 @@ an opaque server nonce and the fresh owner/business frame identity. The nonce is
 not a freshness proof after a save; the existing N6 navigation policy is unchanged.
 
 `catalog-taxonomy-page.tsx` exports `CatalogTaxonomyPage({search,view})` and
-`CatalogTaxonomySliceView`, currently restricted to Categories/Settings.
+`CatalogTaxonomySliceView`, now restricted to Categories/Settings/Groups.
 `catalog-taxonomy-view.tsx` exports `CatalogTaxonomyView({result,readKey})` and
 `CatalogCategorySummary({category})`. The view rejects other resources rather than
-presenting an empty working Groups/Options branch. Later contextual consumers can
+presenting an empty working Options branch. Later contextual consumers can
 extend these files using the reader's checked `parents.item`/`parents.group` and
 actual record identity; no new routes or unfinished-section links ship here.
 
@@ -393,7 +394,50 @@ The isolated `owner-catalog-taxonomy-ui.test.mjs` fixture exercises the public
 pages, rendered fields through the existing model/POST, lock slot selection,
 bounded paging/query shape and failure envelopes. This is synthetic/static proof,
 not browser hydration, live authorization/RLS, visual viewport or real-account
-acceptance. T6 is partial; Groups/Options and T7 navigation integration remain.
+acceptance. T6 is partial; Options and T7 navigation integration remain.
+
+### Contextual Groups UI (second partial T6 slice)
+
+`/owner/catalog/groups`, `/groups/new` and `/groups/[groupId]` now use the same
+fresh server adapter and frozen taxonomy reader. List requires itemId; detail
+resolves the actual group/product and rejects contradictory supplied ancestry.
+Its q/page are return context only. The selected Product detail exposes a guarded
+“Grupos del producto” link using the actual item ID, not a category/search origin.
+Group lists have checked product labels, classic selection bounds/order summaries,
+25-row certified pagination and guarded search/New/detail/back links. They never
+mount every group editor or treat a page as a complete library.
+
+Only New with an absent itemId gets `CatalogGroupCreationContext`:
+`{kind:"creation_chooser",owner,request}`. The adapter validates the full catalog
+query first, freshly loads the dashboard using parsed ownerSearch and mints this
+distinct context only for a selected owner/business. It is not fake ready reader
+data and does not relax the frozen reader. Explicit malformed, empty, foreign or
+missing parents cannot fall into the chooser. `CatalogGroupCreationView({context,
+readKey})` applies the same N6 frame/nonce rule before mounting any picker.
+
+`catalog-option-forms.tsx` currently exports only `CatalogGroupForm` and
+`CatalogGroupFormProps`: scopeKey, businessId, checked item or null, optional actual
+group, optional validated query. Creation requires explicit item selection;
+changing it deliberately remounts the draft. Intrinsic business/record/checked
+parent joins the caller's account/request scope; stale callbacks are fenced.
+The Items picker keeps DTO selections across search/pages. A minimal checked
+ItemParent is retained separately as the selected parent/form summary: it lacks
+itemKind/isAvailable and cannot be fabricated into a valid Items picker seed.
+The replacement picker therefore starts unseeded, without guessing metadata,
+extra lookups or an automatic first-row selection.
+
+Create/update reuse exact create_option_group/update_option_group fields and
+classic defaults. Updates target actual groupId and expose no parent-changing
+picker. Only editable slots mount forms/pickers; read-only slots contain summaries.
+The dynamic selected-parent inspection link returns to that product's Groups list
+via the existing known-save GET contract; pending/unknown remains SPA locked.
+`CatalogCategorySearch` adds optional resource="groups" while preserving its
+Categories default, retaining itemId and resetting page during guarded search.
+
+Options list/new/detail, item→group choice chaining, central option filtering and
+the create_option/update_option UI are deliberately unimplemented here. No links
+to those unfinished pages are advertised. This partial slice does not claim all
+four remaining form contracts or full T6 acceptance; root/store cutover stays T7.
 
 ## Classic form foundation (T4 contracts)
 

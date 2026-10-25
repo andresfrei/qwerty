@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { load } from './owner-first-store-fixtures.mjs';
-import { fixture, businessId, recordId, foreignId, category } from './owner-resource-navigation-fixtures.mjs';
-export { businessId, recordId, foreignId, category };
+import { fixture, businessId, recordId, foreignId, category, itemId, groupId, group } from './owner-resource-navigation-fixtures.mjs';
+export { businessId, recordId, foreignId, category, itemId, groupId, group };
 
 /** Isolated page fixture; the frozen SDK fixture never receives mutation methods. */
 export function taxonomy(options = {}) {
@@ -29,11 +29,13 @@ export function taxonomy(options = {}) {
   };
   return { sdk, frames, forms, markup: renderToStaticMarkup, get clients() { return clients; },
     page(mode) {
-      const path = mode === 'settings' ? 'settings/' : `categories/${mode === 'detail' ? '[categoryId]/' : mode === 'new' ? 'new/' : ''}`;
+      const groupMode = mode.startsWith('groups-') ? mode.slice(7) : null;
+      const path = groupMode ? `groups/${groupMode === 'detail' ? '[groupId]/' : groupMode === 'new' ? 'new/' : ''}`
+        : mode === 'settings' ? 'settings/' : `categories/${mode === 'detail' ? '[categoryId]/' : mode === 'new' ? 'new/' : ''}`;
       return load(`apps/web/app/owner/catalog/${path}page.tsx`, mocks).default;
     },
     async render(mode, search = { businessId }, id = recordId) {
-      return renderToStaticMarkup(await this.page(mode)({ searchParams: Promise.resolve(search), params: Promise.resolve({ categoryId: id }) }));
+      return renderToStaticMarkup(await this.page(mode)({ searchParams: Promise.resolve(search), params: Promise.resolve({ categoryId: id, groupId: id }) }));
     },
   };
 }
