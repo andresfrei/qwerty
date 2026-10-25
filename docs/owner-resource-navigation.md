@@ -15,6 +15,12 @@ inspected. See verification below for failed attempts, exact scope and limitatio
 This is not full Next hydration, live Auth/RLS, real-account or clean-checkout
 acceptance, and it adds no future Operations/Cash/Kitchen/Delivery workflow.
 
+A later reported OwnerShell logout hydration failure was reproduced and repaired:
+the shared button now renders native feedback in SSR rather than being rewritten
+by the root scan before hydration. Actual React StrictMode hydration and native
+compatibility passed; see [native feedback repair](async-action-native-forms.md).
+This extends the bounded proof, not live Next/Auth/account acceptance.
+
 ## Entry and shared-shell integration
 
 `GET /owner/catalog` retains the unchanged strict owner query contract: only
@@ -29,14 +35,16 @@ independently authorizes its own request. No layout authorizes private content.
 Actual Products and taxonomy page adapters provide validated request context with
 the resolved businessId, including typed New-parent choosers. Only active Catalog
 with a matching selected business uses it. Other modules and callers without the
-prop retain their old markup/hrefs. The context is presentation, never authority.
+prop retain their navigation/hrefs. Their shared logout now uses the hydration-safe
+SSR markup described above. The context is presentation, never authority.
 
 Four real sections use N1's per-resource `catalogSectionQuery` and fixed hrefs;
 Groups activate Products rather than exposing a global Groups menu. Business
 switch links use `catalogStoreHref`, clearing record/parents/filter/search/page
 and storePage (Groups → Products). Selector **pagination** instead uses
 `catalogHref` with the same view/record/New/query and changes only storePage.
-Global Home/Orders/Store, create-another-store and native logout are unchanged.
+Global Home/Orders/Store navigation, create-another-store and the native logout
+destination/method are unchanged.
 N6 remains the sole owner of link guards, uncertain-outcome inspection and native
 saved GET/logout exemptions. No Operations/Cash/Kitchen/Delivery is advertised.
 
@@ -671,7 +679,8 @@ never proves exactly-once creation. Profile CAS remains separately durable.
 - Native ASSESS was unassessable because protected preexisting untracked files
   were not adopted. RDD was off; required independent high-risk checks passed.
   This is not native review approval or permission to publish.
-- Fourteen previous/current public shell renders had identical stdout, empty
+- At the earlier navigation integration, before the intentional logout SSR repair,
+  fourteen previous/current public shell renders had identical stdout, empty
   stderr and exit 0 for default/other-module behavior with the new optional input.
   Previous code was copied only into a nonshipping project-local scratch folder;
   committed tests never read Git history.
@@ -693,9 +702,11 @@ never proves exactly-once creation. Profile CAS remains separately durable.
 Final local browser evidence is under `.pi/owner-resource-navigation/presentation/`
 `run-a71a7H`; these artifacts are **not shipped**. The committed task document
 records the run, work-unit hashes, warning/failure history and image review.
-All 320 original protected files retain their initial bytes; the preexisting
-landing edit remains intentionally dirty. Feature-owned application sources match
-their commits. This is not evidence of a clean checkout or a globally clean tree.
+At navigation closure all 320 original protected files retained their initial bytes.
+The later native-feedback repair explicitly changes the shared enhancer and its
+native test/documentation; the other317 remain byte-identical. Auth pages/handlers,
+Catalog guards and the intentionally dirty landing edit are untouched. This is not
+evidence of a clean checkout or a globally clean tree.
 
 ### What this does not prove
 
