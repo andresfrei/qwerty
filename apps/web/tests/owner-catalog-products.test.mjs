@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { load, harness } from './owner-first-store-fixtures.mjs';
 import { products, businessId, itemId, recordId, descendants, productFormFields } from './owner-resource-products-fixtures.mjs';
 
@@ -241,23 +242,20 @@ test('creation parent changes deliberately remount draft; update category keeps 
 test('category filter GET links omit empty IDs, reset page and preserve owner/list context', () => {
   const props = { scopeKey: 'owner:list', businessId, category: null,
     query: { businessId, storePage: 2, page: 8, q: 'old' } };
-  const h = harness('catalog/catalog-product-filters.tsx', props, {
-    './catalog-form-navigation': { CatalogSessionContext: {}, CatalogLink() {}, CatalogInspectionLink() {} },
-  }, 'CatalogProductFilters');
-  let tree = h.render();
-  assert.equal(tree.type, 'fieldset');
-  const links = () => descendants(tree).filter(n => n.type?.name === 'CatalogProductReadLink');
-  assert.doesNotMatch(links()[0].props.href, /categoryId=/);
-  descendants(tree).find(n => n.type === 'input').props.onChange({ target: { value: ' nuevo ' } }); tree = h.render();
-  descendants(tree).find(n => n.type?.name === 'CatalogChoicePicker').props.onSelect({ id: recordId, label: 'Carta' }); tree = h.render();
-  const href = new URL(links()[0].props.href, 'https://qwerty.invalid');
-  assert.equal(href.searchParams.get('categoryId'), recordId); assert.equal(href.searchParams.get('q'), 'nuevo');
-  assert.equal(href.searchParams.get('page'), null); assert.equal(href.searchParams.get('storePage'), '2');
-  assert.equal(href.searchParams.get('businessId'), businessId);
-  assert.doesNotMatch(links()[1].props.href, /categoryId=/);
-  assert.equal(descendants(tree).filter(n => n.type === 'form').length, 0);
-  props.businessId = itemId; tree = h.render();
-  assert.doesNotMatch(links()[0].props.href, /categoryId=/); h.unmount();
+  const Filters = load('apps/web/app/owner/catalog/catalog-product-filters.tsx').CatalogProductFilters;
+  const html = () => renderToStaticMarkup(React.createElement(Filters, props));
+  const dialog = () => html().match(/<dialog\b[\s\S]*?<\/dialog>/)?.[0] ?? '';
+  const href = () => new URL(dialog().match(/href="([^"]+)"/)?.[1].replaceAll('&amp;', '&'), 'https://qwerty.invalid');
+  assert.equal(href().searchParams.get('categoryId'), null);
+  props.query.q = ' nuevo '; props.category = { id: recordId, name: 'Carta' };
+  assert.equal(href().searchParams.get('categoryId'), recordId); assert.equal(href().searchParams.get('q'), 'nuevo');
+  assert.equal(href().searchParams.get('page'), null); assert.equal(href().searchParams.get('storePage'), '2');
+  assert.equal(href().searchParams.get('businessId'), businessId);
+  assert.doesNotMatch(dialog(), /<form\b/); // Modal Apply remains an actual guarded read link.
+  const searchForm = html().match(/<form\b[^>]*>/)?.[0] ?? '';
+  assert.match(searchForm, /method="get"/); assert.doesNotMatch(html(), /method="post"/);
+  props.businessId = itemId; props.category = null;
+  assert.equal(href().searchParams.get('categoryId'), null); assert.equal(href().searchParams.get('businessId'), itemId);
 });
 
 test('read paging/detail/filter links use normal idle navigation and scoped inspection only when locked', () => {

@@ -100,13 +100,13 @@ export function CatalogLink({ inspectionBusinessId, ...props }: LinkProps) {
     if (session && !session.navigate(inspection)) event.preventDefault();
   }} />;
 }
-export function CatalogInspectionLink({ href, businessId, children = "Consultar catálogo" }: { href: string; businessId: string; children?: React.ReactNode }) {
+export function CatalogInspectionLink({ href, businessId, children = "Consultar catálogo", onClick }: { href: string; businessId: string; children?: React.ReactNode; onClick?: React.MouseEventHandler<HTMLAnchorElement> }) {
   const session = useContext(CatalogSessionContext);
   if (!session) throw new Error("catalog_form_scope_required");
   useSyncExternalStore(session.subscribe, session.version, session.version);
   if (!catalogInspectionHref(href, businessId)) throw new Error("invalid_catalog_inspection");
   if (session.canLeaveSaved({ inspectionHref: href, businessId })) {
-    return <a href={href} data-catalog-confirmed-get={businessId} className="font-extrabold underline">Consultar catálogo</a>;
+    return <a href={href} data-catalog-confirmed-get={businessId} onClick={onClick} className="font-extrabold underline">Consultar catálogo</a>;
   }
-  return <CatalogLink href={href} inspectionBusinessId={businessId} prefetch={false} className="font-extrabold underline">{children}</CatalogLink>;
+  return <CatalogLink href={href} inspectionBusinessId={businessId} prefetch={false} onClick={onClick} className="font-extrabold underline">{children}</CatalogLink>;
 }

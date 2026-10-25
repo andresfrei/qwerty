@@ -28,6 +28,30 @@ node --test apps/web/tests/owner-list-table.test.mjs
 
 These components are not yet mounted by the current Products page.
 
+## Products filter toolbar (source prototype)
+
+The toolbar places search and **Filtros** on the left and **Nuevo producto** on the
+right. The filter count/chip describe the applied category, not an uncommitted
+modal selection. The modal uses React Hook Form and the existing scoped, paged
+category picker; it is not a new catalog query or write endpoint.
+
+Open/Cancel/Escape reset the category draft to the applied category; Clear changes
+only the modal draft until Apply. Apply combines the visible search text and the
+chosen category into an existing validated read URL, resets product page and keeps
+business/store-page context. The picker is remounted on draft reset, and a fresh
+owner/business/read scope remounts the form.
+
+Idle search retains native GET/Enter. When an operation is locked, the existing
+native GET veto remains; guarded Search/Apply links provide scoped inspection.
+No native-exit exemption, synthetic click, save retry or lifecycle reset is added.
+Guarded read controls forward an optional UI click callback so Apply can close the
+dialog without resetting its draft/href before navigation. Existing callers omit
+the callback; native/SPA destination validation and cancellation remain unchanged.
+The modal is client UI; ordinary SSR search/read links remain native where eligible.
+
+Actual RHF SSR checks are in `owner-product-list-toolbar.test.mjs`; full live
+interaction/responsive verification remains pending until feature integration.
+
 ## Dependencies
 
 - `@tanstack/react-table` **9.3.1**: headless table rendering; v9 feature/generic APIs.
