@@ -40,7 +40,15 @@ export default function OrderQueueClient({ businessId }: { businessId: string })
         <h2 className="break-all text-sm font-extrabold">Pedido {order.id}</h2><p className="text-xs">{order.createdAt}</p>
         <p>Pedido: pendiente de pago</p><p>Pago: pendiente de verificación. El comprobante no confirma fondos.</p>
         <p>{order.contact.name} · {order.contact.email} · {order.contact.telephone}</p>
-        <ul className="space-y-2">{order.lines.map(line => <li key={JSON.stringify(line)}>{line.quantity} × {line.name}<p className="text-sm">{line.selectionText}</p><p>{formatMoney(line.lineTotalMinor, order.currency)}</p></li>)}</ul>
+        {"version" in order && order.version === 2 ? <ul className="space-y-3">{order.lines.map(line => <li key={JSON.stringify(line)} aria-label="Composición aceptada" className="min-w-0 break-words">
+          <p className="font-bold">{line.quantity} × {line.name}</p>
+          {line.groups.map(group => <p key={group.groupId} className="text-sm">{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}
+          {line.components.map(component => <section key={`${component.componentId}:${component.instanceIndex}`} data-component-instance={`${component.componentId}:${component.instanceIndex}`} className="mt-2 border-l-2 border-[var(--line)] pl-3">
+            <h3 className="text-sm font-bold">{component.name} · Unidad {component.instanceIndex + 1}</h3>
+            {component.groups.map(group => <p key={group.groupId} className="text-sm">{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}
+          </section>)}
+          <p>{formatMoney(line.lineTotalMinor, order.currency)}</p>
+        </li>)}</ul> : <ul className="space-y-2">{order.lines.map(line => <li key={JSON.stringify(line)}>{line.quantity} × {line.name}<p className="text-sm">{line.selectionText}</p><p>{formatMoney(line.lineTotalMinor, order.currency)}</p></li>)}</ul>}
         <p className="font-bold">Total: {formatMoney(order.totalMinor, order.currency)}</p>
       </article>))}
     </section>

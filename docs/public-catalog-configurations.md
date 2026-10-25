@@ -1,8 +1,13 @@
-# Public configurations — storefront mounted; checkout and accepted display still classic
+# Public configurations — T5 connected source handoff
 
-SOURCE prefix only; storefront mounted; checkout and accepted display still classic. No
-browser/CSS, remote activation or SQL/Auth/RLS/race proof. Independent SOURCE review was
-of final bytes, not this intermediate prefix.
+**T5 reopened for independent B1 correction; limited recheck pending.** The public
+reader, cart, picker and checkout are connected, but the prior SOURCE verdict was
+blocked by canonical v1 response/recovery binding. This is a correction candidate,
+not independent acceptance or activation.
+Do not activate profiles based on these tests. T1/T3 contracts remain in
+[catalog-configurations.md](catalog-configurations.md) and
+[configured-checkout.md](configured-checkout.md); T4 owner catalogs/drafts are not
+public DTOs. SQL, browser/CSS, independent review and remote consent remain T6/T7.
 
 ## Public reader contract
 
@@ -42,6 +47,10 @@ unavailable *items* are not exposed via a privileged fallback. Even a forged
 successful supplemental response containing an unavailable child rejects. Missing
 children disable only dependent combos; unrelated valid items remain usable.
 
+Both public pages use this reader. The classic readers remain intact; checkout
+additionally loads the classic catalog only when a public root needs legacy
+configuration. A failed classic supplement cannot disable a valid configured root.
+
 ## Additive cart and wire contract
 
 `configured-cart.ts` exports:
@@ -75,6 +84,60 @@ children disable only dependent combos; unrelated valid items remain usable.
   copied. Arithmetic and mixed-currency failures reject; this helper is **not** a
   current-catalog quote, controller or authorization boundary.
 
+## Accepted-order display
+
+Buyer confirmation, private status and owner queue branch on stored `version:2`.
+They render parent quantity/name/line total, root groups and each fixed component's
+accepted name, zero-based instance displayed as “Unidad N”, group names and counted
+option names. No current catalog or child price is fetched/added. Order and payment
+states remain distinct. Existing v1 rendered output and callbacks compare equal to
+old HEAD; no v1 markup branch or receipt authority was rewritten.
+
+The three small v2 branches are inline to preserve the existing test harness and
+avoid expanding the authorized fixture surface. A shared TSX component is optional
+future cleanup, not a reason to omit any consumer. Actual CSS/browser proof remains
+pending; source classes alone do not certify mobile layout.
+
+## Connected page and component contracts
+
+`/store/[slug]` passes the exact successful public DTO as `{catalog}` to
+`ConfiguredStorefrontClient`, keyed by business and slug. It restores scoped v3
+first, then the existing business-keyed v1/v2 cart, with zero load writes. When
+there are no profiles/new scoped entries it delegates to the unchanged classic
+`StorefrontClient`. Advanced additions and quantity changes persist only after an
+explicit valid user action, using current refs to prevent lost rapid updates.
+Only a public legacy classification enables simple add; unavailable is not legacy.
+
+The reusable `ConfiguredSelection` component has props
+`{catalog:ProfileCatalog,itemId,scope,initial?,disabled?,label?,onAccept}`.
+`onAccept(selection):boolean` is synchronous: false keeps the choice editable;
+true locks that accepted choice until edited/reopened. The picker is lazily loaded
+with Next's existing dynamic loader, preserving classic imports/render behavior.
+Scope/item/line or independent component-instance keys and disposal guards reject
+stale callbacks. It renders native labeled controls, not a JSON inspector:
+
+- Pizza selects a size and one flavor plus optional second half; incompatible or
+  exhausted flavors are disabled. Identical halves resolve through T1 as one with
+  no fee. No base pizza price is shown as a configured selling price.
+- Dozen counters show the selected sum and require exactly twelve. Price is fixed.
+- Standard/legacy groups use their actual distinct/quantity controls.
+- Combo lists fixed products and every independent instance. Fixed groups are
+  displayed; permitted variant controls honor allowlists. No substitutions,
+  recursive items or child charges. T1 validates the complete choice and computes
+  the live parent price. Invalid/incomplete choices cannot invoke accepted add.
+
+Checkout's server page always mounts `ConfiguredCheckoutClient` for a valid slug,
+including unavailable/unpublished current catalogs. Its exact `{page}` prop is
+`{slug,publicCatalog:ConfiguredStorefrontRead,legacyCatalog:CheckoutCatalogRead|null}`.
+Invalid slugs still 404. The boundary chooses the original `CheckoutClient` only
+when public classification is legacy, the classic catalog is available, and no
+new scoped cart/attempt exists; otherwise it mounts `ConfiguredCheckout`.
+That controller-bearing component is recreated in each effect lifecycle, including
+Strict Mode replay, and disposed on scope/data replacement. Recovery never needs a
+current item/profile/publication to read an accepted stored order.
+
+## Durable attempt and controller contract
+
 `pickup-attempt.ts` retains all old technical-reference APIs and adds
 `configuredAttemptKey(slug)`, `readConfiguredAttempt(storage,slug)` and
 `saveConfiguredAttempt(storage,value)`. The new key is `qwerty:pickup:v2:<slug>`:
@@ -86,7 +149,8 @@ children disable only dependent combos; unrelated valid items remain usable.
 
 The envelope version is distinct from wire version. `intent` is the complete v2
 wire for configured/mixed carts, or unversioned v1 wire for all-classic advanced
-input. A later controller unit canonicalizes new advanced v1 requests before freezing; this codec preserves original frozen intent. It contains contact, expected parent total, receipt/request IDs and every
+input. New advanced v1 requests use the existing server normalizer's canonical
+contact/UUID/line/group/pick ordering before freezing; the v1 body schema is unchanged. It contains contact, expected parent total, receipt/request IDs and every
 root/component profile version and choice. Receipt **file bytes are never stored**.
 The exact scoped snapshot key is either the selected v3 key or legacy business
 key. Parsing uses T3 normalizers, bounds the envelope to 6 MiB, rejects extra
@@ -135,23 +199,37 @@ unknown, correction, confirmed, unavailable and storage_error.
   still match the submitted snapshot. An intervening v3 edit cannot be overwritten
   merely because an old v1 key remained unchanged. Old keys are not deleted.
 
-The reusable `ConfiguredSelection` component has props
-`{catalog:ProfileCatalog,itemId,scope,initial?,disabled?,label?,onAccept}`.
-`onAccept(selection):boolean` is synchronous: false keeps the choice editable;
-true locks that accepted choice until edited/reopened. The picker is lazily loaded
-with Next's existing dynamic loader, preserving classic imports/render behavior.
-Scope/item/line or independent component-instance keys and disposal guards reject
-stale callbacks. It renders native labeled controls, not a JSON inspector:
+T5 remains reopened until the original independent verifier rechecks B1 for S1/S8.
+S2–S6 retain the earlier bounded verdict, not a new retest claim. S7 review/commits
+remain parent-owned. T6 presentation and T7 concrete consent/SQL/Auth/RLS/race/remote
+proof remain pending.
 
-- Pizza selects a size and one flavor plus optional second half; incompatible or
-  exhausted flavors are disabled. Identical halves resolve through T1 as one with
-  no fee. No base pizza price is shown as a configured selling price.
-- Dozen counters show the selected sum and require exactly twelve. Price is fixed.
-- Standard/legacy groups use their actual distinct/quantity controls.
-- Combo lists fixed products and every independent instance. Fixed groups are
-  displayed; permitted variant controls honor allowlists. No substitutions,
-  recursive items or child charges. T1 validates the complete choice and computes
-  the live parent price. Invalid/incomplete choices cannot invoke accepted add.
+## Historical pre-B1 evidence
+
+- New tests: reader 10, cart 9, stored-order actual render/callbacks 5.
+- Foundation 24 cases plus 28 connected picker/controller/mount/attempt cases.
+  Final focused new plus affected legacy readers/cart/checkout/attempt/order UI:
+  **128/128**, no photo-parser/full suite/build/browser execution.
+- Final `pnpm --dir apps/web exec tsc --noEmit --incremental false`: exit 0.
+- Final `pnpm --dir apps/web exec biome lint app`: exit 0; pre-existing img warning.
+- Scratch `.pi/catalog-configurations/public/differential.mjs`: 25 comparison groups
+  (18 old-format cart/wire, three v1 exact markup/storage/callback, three v2 markup-
+  only additions, one legacy public DTO). Reader's intentional deltas: one read-only
+  capability POST plus credentials omission/redirect refusal. No real network.
+- Connected scratch differential: three additional groups compare actual classic
+  storefront and checkout callbacks/markup/HTTP/status/storage/write counts, plus
+  shared all-classic advanced controller wire and receipt bytes. Intentional
+  advanced deltas: zero load writes, full attempt envelope, scoped v3 cleanup and
+  session redirect refusal. Classic flow writes four times; advanced writes three
+  times only after explicit confirmation. All 12 T1/T3/T4/SQL hashes are unchanged.
+
+RED: reader 0/6 and cart 0/8 initially failed on missing modules; later unavailable-
+child disclosure and mismatched-slug failures reproduced before their fixes. UI
+initial RED used an invalid repeated-component fixture; corrected fixture and text
+serialization then passed. The scratch old-HEAD comparison demonstrates the valid
+v2 display difference but is **not** pre-implementation RED evidence. Do not present
+that UI lifecycle gap as strict-TDD compliance. Initial type/lint errors were fixed
+in one focused batch; those historical checks preceded the independent B1 finding.
 
 ## B1 bounded correction candidate
 
@@ -168,7 +246,7 @@ and only matching-snapshot cleanup retain their existing behavior. A newer prefe
 cart/key must survive. No retry, new UUID, upload or current catalog lookup follows
 recovery.
 
-Regression tests use actual controller callbacks and fake HTTP backed by the
+Committed regressions use actual controller callbacks and fake HTTP backed by the
 real three server functions, covering descending IDs, contact whitespace, group/
 pick order, accepted-but-lost response, old raw payload recovery without a catalog,
 matching cleanup and newer-key preservation. RED observed all three new cases as

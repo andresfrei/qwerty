@@ -18,3 +18,9 @@ test('actual mounted storefront picker callback writes only after accepted choic
  const saved=JSON.parse(s.getItem(configuredCartStorageKey(business,'tienda')));assert.equal(saved.items.length,1);assert.equal(saved.items[0].quantity,2);assert.equal(s.getItem('qwerty:cart:v1:'+business),null);assert.equal(s.writes.length,2);
  }finally{globalThis.localStorage=old;}
 });
+test('valid-slug checkout mounts recovery-capable client despite unavailable or unpublished current catalog',async()=>{
+ for(const result of [{status:'unavailable'},{status:'not_found'}]){
+ const Page=load('apps/web/app/store/[slug]/checkout/page.tsx',{'@/app/lib/configured-storefront-reader':{readConfiguredStorefront:async()=>result},'@/app/lib/checkout-catalog-reader':{readCheckoutCatalog:async()=>assert.fail('no legacy lookup after unavailable')},'./checkout-client':{default:()=>null,ConfiguredCheckoutClient:function ConfiguredCheckoutClient(){return null;}}}).default;
+ const tree=await Page({params:Promise.resolve({slug:'tienda'})});const mounted=nodes(tree).find(n=>n.type?.name==='ConfiguredCheckoutClient');assert.ok(mounted);assert.equal(mounted.props.page.slug,'tienda');assert.deepEqual(mounted.props.page.publicCatalog,result);
+ }
+});

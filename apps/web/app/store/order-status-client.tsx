@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AsyncActionButton } from "@/app/components/async-action-button";
-import { requestOrder, type OrderResponse } from "@/app/lib/pickup-order-client";
+import { requestOrder, type OrderResponse, type ConfiguredOrder } from "@/app/lib/pickup-order-client";
 import { readAttemptState, type AttemptReference } from "@/app/lib/pickup-attempt";
 import { formatMoney } from "@/app/lib/storefront";
 
@@ -36,6 +36,7 @@ export default function OrderStatusClient({ slug, id }: { slug: string; id?: str
     } finally { active.current = false; if (generation.current === token) setBusy(false); }
   }
   const order = result?.status === "confirmed" ? result.order : null;
+  const configuredOrder = order && "version" in order && order.version === 2 ? order as ConfiguredOrder : null;
   return <main className="mx-auto min-h-screen max-w-3xl px-5 py-10 sm:px-8">
     <p className="text-xs font-bold uppercase text-[var(--olive)]">Consulta privada</p>
     <h1 className="mt-3 text-3xl font-extrabold tracking-tight">{id ? "Seguimiento del pedido" : "Recuperar un intento"}</h1>
@@ -47,7 +48,15 @@ export default function OrderStatusClient({ slug, id }: { slug: string; id?: str
       {result?.status === "session" && <p>Necesitás la sesión original autorizada. No crearemos otra ni recuperaremos por correo.</p>}
       {result?.status === "missing" && <p>No hay un pedido visible para esta sesión.</p>}
       {result && !["confirmed", "session", "missing"].includes(result.status) && <p>No pudimos confirmar el resultado. Conservá la referencia y consultá más tarde; esto no demuestra que el pedido no exista.</p>}
-      {order && <><h2 className="text-xl font-bold">Pedido recibido</h2><p className="break-all text-xs">Referencia: {order.id}</p><p>Pedido: pendiente de pago</p><p>Pago: pendiente de verificación. Un comprobante no confirma fondos.</p><p>{order.contact.name} · {order.contact.email} · {order.contact.telephone}</p><ul className="space-y-3">{order.lines.map(line => <li key={JSON.stringify(line)}>{line.quantity} × {line.name}<p className="text-sm">{line.selectionText}</p><p>{formatMoney(line.lineTotalMinor, order.currency)}</p></li>)}</ul><p className="font-bold">Total: {formatMoney(order.totalMinor, order.currency)}</p></>}
+      {order && <><h2 className="text-xl font-bold">Pedido recibido</h2><p className="break-all text-xs">Referencia: {order.id}</p><p>Pedido: pendiente de pago</p><p>Pago: pendiente de verificación. Un comprobante no confirma fondos.</p><p>{order.contact.name} · {order.contact.email} · {order.contact.telephone}</p>{configuredOrder ? <ul className="space-y-3">{configuredOrder.lines.map(line => <li key={JSON.stringify(line)} aria-label="Composición aceptada" className="min-w-0 break-words">
+        <p className="font-bold">{line.quantity} × {line.name}</p>
+        {line.groups.map(group => <p key={group.groupId} className="text-sm">{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}
+        {line.components.map(component => <section key={`${component.componentId}:${component.instanceIndex}`} data-component-instance={`${component.componentId}:${component.instanceIndex}`} className="mt-2 border-l-2 border-[var(--line)] pl-3">
+          <h3 className="text-sm font-bold">{component.name} · Unidad {component.instanceIndex + 1}</h3>
+          {component.groups.map(group => <p key={group.groupId} className="text-sm">{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}
+        </section>)}
+        <p>{formatMoney(line.lineTotalMinor, order.currency)}</p>
+      </li>)}</ul> : <ul className="space-y-3">{order.lines.map(line => <li key={JSON.stringify(line)}>{line.quantity} × {line.name}<p className="text-sm">{line.selectionText}</p><p>{formatMoney(line.lineTotalMinor, order.currency)}</p></li>)}</ul>}<p className="font-bold">Total: {formatMoney(order.totalMinor, order.currency)}</p></>}
     </section>
     <AsyncActionButton id="order-refresh" type="button" pending={busy} pendingLabel="Consultando…" disabled={busy || (!id && !reference)} onClick={refresh} className="mt-5 min-h-11 rounded-lg border border-[var(--line)] bg-[var(--lime)] px-4 py-2 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] disabled:opacity-50">Consultar estado</AsyncActionButton>
   </main>;

@@ -1,6 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
+import { cartLineSelection, createConfiguredCheckoutController, inspectConfiguredCart, type ConfiguredCheckoutPage } from "@/app/lib/configured-checkout";
+import { configuredCartStorageKey } from "@/app/lib/configured-cart";
+import { configuredAttemptKey } from "@/app/lib/pickup-attempt";
+import type { ConfiguredOrder } from "@/app/lib/pickup-order-client";
+const CorrectionPicker = dynamic(() => import("../../configured-selection-client").then(module => module.ConfiguredSelection));
 import { AsyncActionButton } from "@/app/components/async-action-button";
 import { requestOrder, type OrderIntent, type OrderResponse } from "@/app/lib/pickup-order-client";
 import { clearSubmittedCartState, readAttemptState, saveAttempt, type AttemptReference } from "@/app/lib/pickup-attempt";
@@ -288,11 +294,117 @@ export default function CheckoutClient({ catalog }: { catalog: Extract<CheckoutC
               {orderBusy && <p>Consultando el pedido…</p>}
               {!attempt && <p>Todavía no se envió ningún pedido.</p>}
               {attempt && orderResult?.status !== "confirmed" && <><p>{orderResult?.status === "session" ? "La sesión original es necesaria. No crearemos otra ni recuperaremos por correo." : attempt.correction ? "Conservamos el carrito y los datos para corregir este mismo intento; una consulta sin resultado no autoriza crear otra referencia." : orderResult?.status === "rejected" ? "El servidor rechazó el envío sin permitir correcciones seguras. Conservamos la referencia; consultá el mismo intento." : "El resultado aún no está confirmado. No vuelvas a enviar ni reemplaces el comprobante; consultá la misma referencia."}</p><AsyncActionButton id="order-recover" type="button" pending={orderBusy && orderRecovering} pendingLabel="Consultando…" className={action} disabled={orderBusy} onClick={() => { if (attempt) void resolveOrder(attempt); }}>Consultar intento</AsyncActionButton><a className="block underline" href={`/store/${catalog.storefront.slug}/orders/recover`}>Recuperar desde este navegador</a></>}
-              {orderResult?.status === "confirmed" && <><p>Pedido recibido. Estado del pedido: pendiente de pago. Pago: pendiente de verificación; el comprobante no confirma fondos.</p><a id="order-tracking" className="font-bold underline" href={`/store/${catalog.storefront.slug}/orders/${orderResult.order.id}`}>Ver seguimiento privado</a></>}
+              {orderResult?.status === "confirmed" && <><p>Pedido recibido. Estado del pedido: pendiente de pago. Pago: pendiente de verificación; el comprobante no confirma fondos.</p><a id="order-tracking" className="font-bold underline" href={`/store/${catalog.storefront.slug}/orders/${orderResult.order.id}`}>Ver seguimiento privado</a>
+                {"version" in orderResult.order && orderResult.order.version === 2 && <>
+                  <ul className="space-y-3">{orderResult.order.lines.map(line => <li key={JSON.stringify(line)} aria-label="Composición aceptada" className="min-w-0 break-words">
+                    <p className="font-bold">{line.quantity} × {line.name}</p>
+                    {line.groups.map(group => <p key={group.groupId} className="text-sm">{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}
+                    {line.components.map(component => <section key={`${component.componentId}:${component.instanceIndex}`} data-component-instance={`${component.componentId}:${component.instanceIndex}`} className="mt-2 border-l-2 border-[var(--line)] pl-3">
+                      <h3 className="text-sm font-bold">{component.name} · Unidad {component.instanceIndex + 1}</h3>
+                      {component.groups.map(group => <p key={group.groupId} className="text-sm">{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}
+                    </section>)}
+                    <p>{formatMoney(line.lineTotalMinor, orderResult.order.currency)}</p>
+                  </li>)}</ul>
+                  <p className="font-bold">Total: {formatMoney(orderResult.order.totalMinor, orderResult.order.currency)}</p>
+                </>}
+              </>}
             </div>
           </section>
         </section>
       </form>
     </main>
   );
+}
+
+// The classic export above retains its existing hooks, markup and wire. This
+// boundary opts into the advanced controller only for profiles/new durable data
+// or a missing current catalog (where private historical recovery must still work).
+export function ConfiguredCheckoutClient({ page }: { page: ConfiguredCheckoutPage }) {
+  const [mode, setMode] = useState<"loading" | "classic" | "advanced">("loading");
+  useEffect(() => {
+    const published = page.publicCatalog;
+    const hasProfiles = published.status !== "ok" || Object.values(published.configurations).some(item => item.status !== "legacy");
+    try {
+      const advanced = localStorage.getItem(configuredAttemptKey(page.slug)) !== null || published.status === "ok"
+        && localStorage.getItem(configuredCartStorageKey(published.storefront.business_id, page.slug)) !== null;
+      setMode(!hasProfiles && !advanced && page.legacyCatalog?.status === "ok" ? "classic" : "advanced");
+    } catch { setMode("advanced"); }
+  }, [page]);
+  if (mode === "loading") return <main className="mx-auto max-w-3xl px-5 py-10"><p>Cargando compra…</p></main>;
+  const current = page.publicCatalog;
+  const classic = current.status === "ok" && Object.values(current.configurations).every(item => item.status === "legacy");
+  if (mode === "classic" && classic && page.legacyCatalog?.status === "ok") return <CheckoutClient catalog={page.legacyCatalog} />;
+  return <ConfiguredCheckout key={`${page.slug}:${current.status === "ok" ? current.storefront.business_id : "recovery"}`} page={page} />;
+}
+
+export function ConfiguredCheckout({ page }: { page: ConfiguredCheckoutPage }) {
+  const [, render] = useState(0);
+  const current = useRef<ReturnType<typeof createConfiguredCheckoutController> | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = createConfiguredCheckoutController(page, {
+      storage: () => localStorage, onChange: () => render(value => value + 1),
+    });
+    current.current = controller;
+    void controller.restore();
+    render(value => value + 1);
+    return () => { controller.dispose(); if (current.current === controller) current.current = null; };
+  }, [page]);
+  const controller = current.current;
+  if (!controller) return <main className="mx-auto max-w-3xl px-5 py-10"><p>Cargando compra…</p></main>;
+  const state = controller.snapshot();
+  const inspection = inspectConfiguredCart(state.cart, page);
+  const frozen = ["loading", "preparing", "uploading", "pending", "unknown", "confirmed", "storage_error"].includes(state.phase);
+  const order = state.order;
+  const configuredOrder = state.order && "version" in state.order && state.order.version === 2 ? state.order as ConfiguredOrder : null;
+  return <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 sm:px-8">
+    <a href={`/store/${page.slug}`} className="text-sm font-bold underline">Volver a la carta</a>
+    <h1 className="mt-6 text-3xl font-extrabold">Continuar compra</h1>
+    {page.publicCatalog.status !== "ok" && <p role="alert" className="mt-4 rounded-lg bg-[var(--transfer-bg)] p-4">La carta actual no está disponible. Conservamos el carrito y podés consultar tu intento con la sesión original.</p>}
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <section className="min-w-0" aria-label="Tu carrito">
+        {inspection.rows.map(row => <section key={row.line.key} className="mb-4 min-w-0 rounded-xl border border-[var(--line)] bg-white p-5">
+          <h2 className="break-words text-lg font-bold">{row.line.quantity} × {row.line.name}</h2>
+          <p className="break-words text-sm">{row.line.selectionText}</p>
+          <p className="mt-2 text-sm">{formatMoney(row.line.unitPriceMinor, row.line.currency)} por unidad · Importe guardado</p>
+          {!row.valid && <p role="alert" className="mt-3 text-sm">{row.catalog ? "El precio, la versión o las opciones necesitan una revisión explícita. Conservamos tu elección anterior." : "Este producto o su configuración no está disponible. Conservamos tu elección anterior."}</p>}
+          <fieldset disabled={frozen} className="mt-4 flex min-w-0 flex-wrap items-center gap-3">
+            <legend className="sr-only">Editar {row.line.name}</legend>
+            <label htmlFor={`units-${row.line.key}`} className="text-sm font-bold">Unidades</label>
+            <input id={`units-${row.line.key}`} type="number" min={1} max={99} step={1} className={`${control} w-20`} value={row.line.quantity} onChange={event => { if (event.target.value.trim() && Number(event.target.value) >= 1) controller.quantity(row.line.key, Number(event.target.value)); }} />
+            <button type="button" className={action} onClick={() => controller.quantity(row.line.key, 0)}>Quitar producto</button>
+            {row.catalog && <button id={`review-${row.line.id}`} type="button" className={action} onClick={() => setEditing(row.line.key)}>Revisar configuración</button>}
+            {row.changed && <button type="button" className={action} onClick={() => controller.replace(row.line.key, cartLineSelection(row.line))}>Aceptar importe actualizado</button>}
+          </fieldset>
+          {editing === row.line.key && row.catalog && <CorrectionPicker key={`${state.cart?.businessId}:${page.slug}:${row.line.key}`} scope={`${state.cart?.businessId}:${page.slug}:${row.line.key}`} catalog={row.catalog} itemId={row.line.id} disabled={frozen} label="Guardar elección revisada" initial={row.valid || row.changed ? cartLineSelection(row.line) : undefined} onAccept={selection => {
+            if (!controller.replace(row.line.key, selection)) return false;
+            setEditing(null); return true;
+          }} />}
+        </section>)}
+        {state.cart?.items.length === 0 && <p>No hay productos en tu carrito.</p>}
+      </section>
+      <section className="min-w-0 rounded-xl border border-[var(--line)] bg-white p-5" aria-label="Confirmación del pedido" aria-busy={["preparing", "uploading", "pending"].includes(state.phase)}>
+        <h2 className="text-xl font-bold">Datos de contacto</h2>
+        <p className="mt-3 text-sm">Son datos de contacto, no una identidad verificada ni acceso por correo.</p>
+        <fieldset disabled={frozen} className="mt-4 space-y-4"><legend className="sr-only">Contacto</legend>
+          {contactFields.map(({ key, label, ...input }) => <label key={key} className="block text-sm font-bold" htmlFor={`contact-${key}`}>{label}<input {...input} id={`contact-${key}`} className={`${control} mt-1 w-full`} value={state.contact[key]} onChange={event => controller.editContact({ ...controller.snapshot().contact, [key]: event.target.value })} /></label>)}
+        </fieldset>
+        <AsyncActionButton id="configured-prepare" type="button" className={`${action} mt-4 w-full`} pending={state.phase === "preparing"} pendingLabel="Preparando…" disabled={frozen || state.phase === "correction" || !inspection.valid || Object.keys(validateContact(state.contact)).length > 0 || !!state.receiptId} onClick={() => controller.prepare()}>Preparar sesión</AsyncActionButton>
+        <label htmlFor="receipt-file" className="mt-5 block text-sm font-bold">Comprobante de transferencia</label>
+        <input id="receipt-file" type="file" accept="image/*,application/pdf" disabled={frozen || !!state.receiptId || state.phase !== "ready"} className="mt-2 block w-full min-w-0 text-sm" onChange={event => controller.setFile(event.currentTarget.files?.[0] ?? null)} />
+        {state.file && <p className="mt-2 break-all text-xs">{state.file.name}</p>}
+        <AsyncActionButton id="receipt-upload" type="button" className={`${action} mt-3 w-full`} pending={state.phase === "uploading"} pendingLabel="Adjuntando…" disabled={state.phase !== "ready" || !state.file || !!state.receiptId} onClick={() => controller.upload()}>Adjuntar comprobante</AsyncActionButton>
+        {state.receiptId && <p className="mt-3 text-sm">Comprobante adjuntado. No confirma fondos. <a className="underline" href={`/api/checkout/receipts/${state.receiptId}?slug=${encodeURIComponent(page.slug)}`} download rel="noreferrer">Descargar original</a></p>}
+        {state.phase === "correction" && <><p className="mt-4 text-sm">El servidor pidió una corrección ({state.attempt?.correction}). Actualizá la carta si cambió y revisá tus elecciones. No reenviamos automáticamente.</p><a className="mt-3 block underline" href={`/store/${page.slug}/checkout`}>Actualizar carta conservando referencia</a><AsyncActionButton id="configured-review" type="button" pending={false} pendingLabel="Revisando…" className={`${action} mt-3 w-full`} onClick={() => controller.review()}>Revisar y aceptar importe para confirmar</AsyncActionButton></>}
+        <AsyncActionButton id="order-confirm" type="button" className={`${action} mt-4 w-full bg-[var(--lime)]`} pending={state.phase === "pending"} pendingLabel="Confirmando compra…" disabled={state.phase !== "ready" || !state.receiptId || !inspection.valid || Object.keys(validateContact(state.contact)).length > 0} onClick={() => controller.confirm()}>Confirmar compra</AsyncActionButton>
+        {(state.attempt || state.reference) && state.phase !== "confirmed" && <AsyncActionButton id="order-recover" type="button" className={`${action} mt-3 w-full`} pending={state.reading} pendingLabel="Consultando…" disabled={state.reading} onClick={() => controller.recover()}>Consultar mismo intento</AsyncActionButton>}
+        <p aria-live="polite" className="mt-4 break-words text-sm">{state.message}</p>
+        {state.phase === "unknown" && <p className="mt-3 text-sm">No vuelvas a enviar ni reemplaces el comprobante. Una consulta sin resultado no demuestra que el pedido no exista.</p>}
+        {order && <section className="mt-5 min-w-0 space-y-3" aria-label="Pedido recibido"><h2 className="font-bold">Pedido recibido</h2><p>Pedido: pendiente de pago. Pago: pendiente de verificación; el comprobante no confirma fondos.</p><a id="order-tracking" className="block underline" href={`/store/${page.slug}/orders/${order.id}`}>Ver seguimiento privado</a>
+          {configuredOrder ? <ul>{configuredOrder.lines.map(line => <li key={JSON.stringify(line)} aria-label="Composición aceptada" className="mt-4 min-w-0 break-words"><p className="font-bold">{line.quantity} × {line.name}</p>{line.groups.map(group => <p key={group.groupId}>{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}{line.components.map(component => <section key={`${component.componentId}:${component.instanceIndex}`} data-component-instance={`${component.componentId}:${component.instanceIndex}`} className="mt-2 border-l-2 border-[var(--line)] pl-3"><h3 className="font-bold">{component.name} · Unidad {component.instanceIndex + 1}</h3>{component.groups.map(group => <p key={group.groupId}>{group.name}: {group.picks.map(pick => `${pick.quantity} × ${pick.name}`).join(" + ")}</p>)}</section>)}<p>{formatMoney(line.lineTotalMinor, configuredOrder.currency)}</p></li>)}</ul> : <ul>{order.lines.map(line => <li key={JSON.stringify(line)}>{line.quantity} × {line.name}<p>{line.selectionText}</p><p>{formatMoney(line.lineTotalMinor, order.currency)}</p></li>)}</ul>}
+          <p className="font-bold">Total: {formatMoney(order.totalMinor, order.currency)}</p>
+        </section>}
+      </section>
+    </div>
+  </main>;
 }
