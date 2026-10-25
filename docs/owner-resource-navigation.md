@@ -2,22 +2,20 @@
 
 ## Delivery status
 
-The navigation/query and classic form foundations are accepted (T2–T4).
-The legacy Catalog entry now resolves fresh owner selection and redirects to the
-actual Products list. It no longer reads or mounts the all-record editor.
-T5 now has Products list/new/detail, paged category choices, category changes,
-GET filters and the selected record's advanced profile editor with paged component
-choices. Server-only taxonomy/Products readers and the bounded choices GET endpoint
-exist. The first T6 slice adds Categories list/new/detail and singleton Catalog
-settings. A second partial T6 slice adds contextual Groups list/new/detail and
-its selected-product entry link. The final T6 source slice adds the Options
-directory/new/detail and chained parent choices. T6 source consumers are now
-implemented. T7 source integration now mounts four real subsection links and
-preserves resource context through store-selector pagination. Independent review
-and mounted-flow verification remain T7 work.
-This guide does not certify a complete dashboard or real-account acceptance.
+Catalog is implemented as module → subsection → summary list → selected record,
+with separate creation pages. Products, Categories, product/group-owned
+Varieties/options and singleton Settings are reachable from the real Catalog entry.
+Only the selected record mounts its classic/photo/profile editors. Filters, page
+and selected-business context survive the record/return flow; changing business
+clears the previous record and filters. Other existing modules remain unchanged.
 
-## Entry and shared-shell integration (T7 source; UI proof pending)
+Source checks and independent review passed, plus 137 bounded actual-React/CSS
+browser assertions at desktop 1440 and mobile 390. Four current screenshots were
+inspected. See verification below for failed attempts, exact scope and limitations.
+This is not full Next hydration, live Auth/RLS, real-account or clean-checkout
+acceptance, and it adds no future Operations/Cash/Kitchen/Delivery workflow.
+
+## Entry and shared-shell integration
 
 `GET /owner/catalog` retains the unchanged strict owner query contract: only
 businessId/storePage. A request-local SDK and fresh confirmed-owner dashboard
@@ -46,7 +44,8 @@ The source integration tests use public page adapters and read-only synthetic SD
 calls. The nonshipping differential compares previous-HEAD and current shell
 public renders, including extra optional context on Home/Orders/Store and default
 Catalog. Neither source tests nor a differential establish browser/Next/RLS proof.
-The presentation plan is explicitly NOT ready for execution; T7 is not complete.
+The completed bounded browser proof is recorded below. Framework/transport aliases
+remain explicit; it does not replace the server authorization or live-account checks.
 
 ## Route and query contracts
 
@@ -76,7 +75,7 @@ be forwarded into or permitted by the strict shared owner/mutation query parser.
 clearing old record/filter context. Groups return to Products after a store change.
 Breadcrumbs preserve the current section's validated list context.
 
-## Server taxonomy reads (partial T3)
+## Server taxonomy reads (T3)
 
 `catalog/catalog-page-data.ts` exports `loadCatalogTaxonomyPage(client, search,
 view)`, `CATALOG_PAGE_SIZE` (25), and types `TaxonomyResource`, `TaxonomyView`,
@@ -145,7 +144,7 @@ required contextual parents yields `{kind: "invalid"}` before even auth reads.
 Non-selected dashboard outcomes (redirect/invalid/unavailable/missing/empty) are
 forwarded without catalog reads or fallback to another business.
 
-## Server Products reads (partial T3)
+## Server Products reads (T3)
 
 `catalog/catalog-item-page-data.ts` exports `loadCatalogItemPage(client, search,
 view)` and types `ItemView`, `ItemProfileSummary`, `CatalogItemSummary`,
@@ -374,14 +373,13 @@ classification and pizza/dozen/standard/matrix/pricing rules remain unchanged.
 See [owner-catalog-configurations.md](owner-catalog-configurations.md) for the
 legacy/paged prop contract and controller limits.
 
-The scoped Products source consumers and selected-label correction are accepted
-as T5 source integration (spec L18). The original75/75 missed that consumer display
-assertion. This is not full Catalog or live acceptance. Root entry/shared
-store-switch integration are now implemented in T7 source; mounted-flow verification
-remains pending. S1/S4 overall still require
-independent T7 root/store/menu review and mounted-flow verification.
+The Products source consumers and selected-label correction passed independent
+review. The original 75-test pass missed the mounted selected-label assertion;
+the correction and limited recheck are retained in the implementation log.
+Root/store/menu integration and the bounded mounted proof have since passed.
+Neither result is live-account or backend authorization acceptance.
 
-## Categories and Catalog settings UI (first T6 slice)
+## Categories and Catalog settings UI
 
 `/owner/catalog/categories`, `/owner/catalog/categories/new`,
 `/owner/catalog/categories/[categoryId]` and `/owner/catalog/settings` are dynamic
@@ -428,10 +426,10 @@ The isolated `owner-catalog-taxonomy-ui.test.mjs` fixture exercises the public
 pages, rendered fields through the existing model/POST, lock slot selection,
 bounded paging/query shape and failure envelopes. This is synthetic/static proof,
 not browser hydration, live authorization/RLS, visual viewport or real-account
-acceptance. Subsequent Groups/Options consumers are described below; T7
-navigation integration remains.
+acceptance. Groups/Options consumers are described below; the separate integrated
+browser proof covers their bounded navigation and lifecycle flows.
 
-### Contextual Groups UI (second partial T6 slice)
+### Contextual Groups UI
 
 `/owner/catalog/groups`, `/groups/new` and `/groups/[groupId]` now use the same
 fresh server adapter and frozen taxonomy reader. List requires itemId; detail
@@ -469,10 +467,10 @@ via the existing known-save GET contract; pending/unknown remains SPA locked.
 `CatalogCategorySearch` adds optional resource="groups" while preserving its
 Categories default, retaining itemId and resetting page during guarded search.
 
-This Groups slice was partial on its own. The Options consumer below completes
-the remaining T6 source surfaces; root/store/menu cutover stays T7.
+Groups and Options are both implemented. The Options consumer below uses the same
+checked ancestry and integrated root/store/menu navigation.
 
-### Varieties/options UI (final T6 source slice)
+### Varieties/options UI
 
 `/owner/catalog/options`, `/options/new` and `/options/[optionId]` are dynamic
 promised-parameter leaves. The central directory uses frozen counted 25-row
@@ -519,8 +517,9 @@ or unknown inspection remains SPA locked; only known-save explicit validated GET
 may start another document. The selected-parent form inspection link follows the
 current product/group, while ordinary back links preserve origin context.
 
-T6 source consumers are complete, subject to parent review; this is not root/menu
-cutover, browser hydration/viewport proof, live RLS or real-account acceptance.
+Taxonomy source consumers, independent review and integrated bounded browser
+navigation passed. Full Next hydration, live RLS and real-account acceptance remain
+outside this proof.
 
 ## Classic form foundation (T4 contracts)
 
@@ -652,19 +651,68 @@ The legacy Catalog root now performs only the fresh owner read and fixed Product
 redirect. The destination retains the mandatory frame/inspection policy. The
 standalone legacy editor/model remain unchanged, but are not mounted by that root.
 
-The corrected T4 foundation was accepted at f2d4e230 after the targeted independent
-recheck recorded in spec L14. That is not full resource rendering or browser
-acceptance. T5/T6 must supply fresh authorized data and obey the slots;
-T7 must verify mounted navigation/hydration. Harness effect replay and static
-markup are not actual React StrictMode/browser proof. No authorization/business
-selection may exist only in a cached layout; pages/actions keep fresh checks.
+The corrected T4 foundation and its resource consumers passed independent review;
+the implementation log preserves the cached-read/logout findings and corrections.
+The integrated browser proof uses actual React development StrictMode, distinct
+from earlier hook simulation/static markup. It does not certify Next hydration.
+Fresh authorization and the slot contract remain mandatory: no authorization or
+business selection may exist only in a cached layout; pages/actions keep fresh checks.
 Classic locks are NOT durable across full reload/tabs/restart; a GET inspection
 never proves exactly-once creation. Profile CAS remains separately durable.
 
-## Focused verification
+## Verification and limits
 
-`node --test apps/web/tests/owner-catalog-navigation.test.mjs` exercises the public
-helpers, actual static React navigation markup and the unchanged legacy owner
-URL/parser boundary. Static markup is not browser navigation or hydration proof.
-The implementation spec and live work-unit status are in
+- Final integrated source command: 78/78 passed, including the default dashboard,
+  all resource pages, navigation, lifecycle and legacy UI contracts. Independent
+  review reran the same 78 cases and returned scoped S1–S5 source PASS.
+- Whole-web TypeScript passed. Targeted Biome checks passed; earlier read-model
+  non-null-assertion warnings and one profile optional-chain warning are recorded.
+  `.mjs` tests/fixtures are excluded by repository lint configuration, not certified.
+- Native ASSESS was unassessable because protected preexisting untracked files
+  were not adopted. RDD was off; required independent high-risk checks passed.
+  This is not native review approval or permission to publish.
+- Fourteen previous/current public shell renders had identical stdout, empty
+  stderr and exit 0 for default/other-module behavior with the new optional input.
+  Previous code was copied only into a nonshipping project-local scratch folder;
+  committed tests never read Git history.
+- The final isolated browser run passed 137/137 assertions and four inspected
+  screenshots at widths 1440/390, using actual current React development StrictMode,
+  controllers, CSS and local Manrope. It covered parent selection, list/detail/back,
+  store-switch versus selector pagination, same-tick duplicate suppression, rejected
+  draft retention, uncertain SPA/read-only inspection, saved native GET and trusted
+  native logout navigation. No unexpected runtime errors or unmatched requests.
+- Four deliberate HTTP resource errors (409/503 at each width) are retained as
+  expected fixture evidence, not silently discarded. A six-rule RED→GREEN classifier
+  requires an exact fulfilled injected response/context match, uses it once, and
+  leaves every page exception and unmatched console/network error fatal.
+- Original failed attempts remain: Chromium's overlong temporary socket path
+  stopped launch; a second attempt stopped after 46/47 desktop checks because its
+  generic collector mislabeled a deliberate 409. Each further run had explicit
+  human consent. Neither failed attempt is reported as full acceptance.
+
+Final local browser evidence is under `.pi/owner-resource-navigation/presentation/`
+`run-a71a7H`; these artifacts are **not shipped**. The committed task document
+records the run, work-unit hashes, warning/failure history and image review.
+All 320 original protected files retain their initial bytes; the preexisting
+landing edit remains intentionally dirty. Feature-owned application sources match
+their commits. This is not evidence of a clean checkout or a globally clean tree.
+
+### What this does not prove
+
+- Framework Link/router, server-ready data and HTTP transport were synthetic;
+  the browser proof is not actual Next RSC/prefetch/hydration or wire-307 proof.
+- No live Auth/logout, SQL/RLS/PostgREST search, two-session concurrency, real
+  account, photo upload or successful profile-mutation acceptance was performed.
+- Native cancellation testing includes a synthetic cancelable unload event; no
+  hostile CSP/sandbox/third-party or browser-suppressed-prompt guarantee is made.
+- Full suite/build, old dashboard165/native9 and expensive photo-parser reruns
+  were intentionally excluded. Existing targeted checks were used instead.
+- Classic pending/unknown locks remain document RAM, not cross-reload/tab
+  durability or exactly-once creation. Profile durable intent/CAS is separate.
+
+Manual real-account QA remains a separate blocked task; do not replace it with
+the synthetic result or request credentials in chat. No migration, dependency,
+application-environment change, push, PR, merge or new operational workflow is part of this delivery.
+
+The implementation specification and work-unit evidence are in
 [owner-resource-navigation.md](../odd/tasks/owner-resource-navigation.md).
