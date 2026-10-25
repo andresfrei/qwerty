@@ -29,4 +29,21 @@ test("shared shell defaults remain bounded; only an explicit width prop removes 
   assert.match(render(), /mx-auto max-w-4xl/);
   assert.match(render({ contentWidth: "wide" }), /mx-auto max-w-none/);
   assert.equal(render({ contentWidth: "reading" }), render());
+  assert.doesNotMatch(render().match(/<main[^>]*>/)?.[0] ?? "", /lg:flex/);
+});
+
+test("wide Products layout supplies a full-height flex chain with a growing result body", () => {
+  const Shell = load("apps/web/app/owner/owner-shell.tsx").OwnerShell;
+  const Layout = load("apps/web/app/components/resource-list-layout.tsx").ResourceListLayout;
+  const content = React.createElement(Layout, { titleId: "products-title", title: "Productos", toolbar: "Filtros", footer: "Paginación" }, React.createElement("table", null, React.createElement("tbody")));
+  const html = renderToStaticMarkup(React.createElement(Shell, { ownedBusinesses: [], selectedBusiness: null, activeModule: "catalog", account: { id }, pagination: { page: 0, hasMore: false }, contentWidth: "wide" }, content));
+  const main = html.match(/<main class="([^"]+)"><div class="([^"]+)">/);
+  assert.match(main?.[1] ?? "", /lg:flex lg:flex-col/);
+  assert.match(main?.[2] ?? "", /lg:flex lg:flex-1 lg:flex-col/);
+  assert.match(main?.[2] ?? "", /lg:w-full/);
+  assert.match(html, /<section[^>]*class="flex min-w-0 flex-1 flex-col gap-6"/);
+  assert.match(html, /class="flex min-w-0 flex-1 flex-col rounded-2xl/);
+  assert.match(html, /<div class="min-w-0 flex-1"><table/);
+  assert.ok(html.indexOf("<table") < html.indexOf("Paginación"));
+  assert.doesNotMatch(html, /overflow-hidden|(?<!min-)h-(?:screen|dvh)|calc\(/);
 });

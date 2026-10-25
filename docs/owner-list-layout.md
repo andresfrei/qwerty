@@ -3,9 +3,11 @@
 ## Current status
 
 The approved prototype targets **Products lists and their filter dialog only**.
-The dependencies and Products layout are integrated. Source checks pass: 96 scoped
-cases, TypeScript and four-file lint. A bounded synthetic Chromium run passes 63
-checks at 1440/390. Independent S1–S4 integration review passes with no blockers.
+The dependencies and Products layout are integrated. Initial prototype evidence:
+96 scoped cases, TypeScript/four-file lint, and 63 synthetic Chromium checks at
+1440/390. The subsequent available-height correction passes 41 relevant source
+cases, TypeScript/two-file lint, 107 rendered-geometry checks and independent
+S1 review with S2–S4 preserved. Both reviews have no scoped blockers.
 Native ASSESS remains unassessable with RDD off; this is not native approval.
 Auth, existing record-editing forms and saved/unknown operation lifecycles are not
 being migrated. Existing nested Catalog sidebar working changes are preserved.
@@ -35,6 +37,19 @@ reference-price strings, validated record URLs and certified pagination metadata
 Category/availability are secondary desktop columns and compact mobile sublines.
 `OwnerShell.contentWidth` defaults to `reading`; only the Products list adapter
 passes `wide`. New/detail/editing surfaces keep their prior width and widgets.
+
+On desktop the wide shell, list section and card form a flex-growth chain. The
+result body uses spare central height, keeping pagination at the bottom for empty
+or short lists without stretching table rows. Long lists retain normal document
+scrolling; mobile retains its natural stacked flow. No fixed viewport height,
+header-pixel subtraction or overflow clipping is introduced.
+
+Height verification uses actual component SSR/Tailwind/Manrope: empty/one/25 rows,
+1440/2000 desktop and 390 mobile, plus four resizes. The original empty desktop
+footer gap was reproduced at 433px and reduced to the expected 1px border; row
+heights, full width, DOM reading order and long-list document scrolling are retained.
+Twelve exact SSR comparisons preserve default shells and New/detail output.
+This CSS geometry check does not claim hydrated Next navigation or real-account QA.
 
 ## Products filter toolbar (source prototype)
 

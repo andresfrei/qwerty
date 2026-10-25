@@ -57,7 +57,7 @@ export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pa
       )}</nav>
       <form action="/auth/logout" method="post" className="mt-6"><NativeAuthButton className={`${link} w-full border border-[var(--line)] text-left`} pendingLabel="Cerrando sesión…">Cerrar sesión</NativeAuthButton></form>
     </aside>
-    <main className="min-w-0 px-5 py-8 sm:px-8 lg:p-12"><div className={`mx-auto ${contentWidth === "wide" ? "max-w-none" : "max-w-4xl"}`}>
+    <main className={contentWidth === "wide" ? "min-w-0 px-5 py-8 sm:px-8 lg:p-12 lg:flex lg:flex-col" : "min-w-0 px-5 py-8 sm:px-8 lg:p-12"}><div className={`mx-auto ${contentWidth === "wide" ? "max-w-none lg:flex lg:flex-1 lg:flex-col lg:w-full" : "max-w-4xl"}`}>
       {catalog && <CatalogSectionNav section={catalog.view.resource === "groups" ? "items" : catalog.view.resource} query={catalog.query} />}
       {children}
     </div></main>
