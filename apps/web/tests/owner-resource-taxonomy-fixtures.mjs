@@ -30,12 +30,14 @@ export function taxonomy(options = {}) {
   return { sdk, frames, forms, markup: renderToStaticMarkup, get clients() { return clients; },
     page(mode) {
       const groupMode = mode.startsWith('groups-') ? mode.slice(7) : null;
-      const path = groupMode ? `groups/${groupMode === 'detail' ? '[groupId]/' : groupMode === 'new' ? 'new/' : ''}`
+      const optionMode = mode.startsWith('options-') ? mode.slice(8) : null;
+      const path = optionMode ? `options/${optionMode === 'detail' ? '[optionId]/' : optionMode === 'new' ? 'new/' : ''}`
+        : groupMode ? `groups/${groupMode === 'detail' ? '[groupId]/' : groupMode === 'new' ? 'new/' : ''}`
         : mode === 'settings' ? 'settings/' : `categories/${mode === 'detail' ? '[categoryId]/' : mode === 'new' ? 'new/' : ''}`;
       return load(`apps/web/app/owner/catalog/${path}page.tsx`, mocks).default;
     },
     async render(mode, search = { businessId }, id = recordId) {
-      return renderToStaticMarkup(await this.page(mode)({ searchParams: Promise.resolve(search), params: Promise.resolve({ categoryId: id, groupId: id }) }));
+      return renderToStaticMarkup(await this.page(mode)({ searchParams: Promise.resolve(search), params: Promise.resolve({ categoryId: id, groupId: id, optionId: id }) }));
     },
   };
 }

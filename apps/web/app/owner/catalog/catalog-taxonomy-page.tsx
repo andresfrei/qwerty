@@ -3,15 +3,22 @@ import { createClient } from "@/app/lib/supabase/server";
 import { loadOwnerDashboard, type OwnerDashboardData } from "../owner-dashboard-data";
 import { OwnerDashboardView } from "../owner-dashboard-views";
 import { OwnerShell } from "../owner-shell";
-import { loadCatalogTaxonomyPage, type TaxonomyView } from "./catalog-page-data";
+import { loadCatalogTaxonomyPage, type TaxonomyView, type ItemParent } from "./catalog-page-data";
 import { parseCatalogPageQuery, type CatalogSearch, type CatalogPageRequest } from "./catalog-navigation";
-import { CatalogTaxonomyView, CatalogGroupCreationView } from "./catalog-taxonomy-view";
+import { CatalogTaxonomyView, CatalogGroupCreationView, CatalogOptionCreationView } from "./catalog-taxonomy-view";
 
-export type CatalogTaxonomySliceView = Omit<TaxonomyView, "resource"> & { resource: "categories" | "settings" | "groups" };
+export type CatalogTaxonomySliceView = Omit<TaxonomyView, "resource"> & { resource: "categories" | "settings" | "groups" | "options" };
 export type CatalogGroupCreationContext = {
   kind: "creation_chooser";
   owner: Extract<OwnerDashboardData, { kind: "selected" }>;
   request: CatalogPageRequest;
+};
+
+export type CatalogOptionCreationContext = {
+  kind: "option_creation_chooser";
+  owner: Extract<OwnerDashboardData, { kind: "selected" }>;
+  request: CatalogPageRequest;
+  item: ItemParent | null;
 };
 
 /** Every public leaf reads fresh owner scope; the layout is never authority. */
@@ -21,12 +28,15 @@ export async function CatalogTaxonomyPage({ search, view }: { search: CatalogSea
   // Only a syntactically valid New with genuinely absent parent gets this separate context.
   // Explicit malformed/foreign parents always use the unchanged reader/failure envelope.
   const choosing = request.ok && request.resource === "groups" && request.mode === "new" && !request.query.itemId;
-  const result = choosing ? await loadOwnerDashboard(client, request.ownerSearch)
+  const choosingOption = request.ok && request.resource === "options" && request.mode === "new" && !request.query.groupId;
+  const result = choosingOption && request.ok && request.query.itemId
+    ? await loadCatalogTaxonomyPage(client, { ...request.ownerSearch, itemId: request.query.itemId }, { resource: "groups" })
+    : (choosing || choosingOption) && request.ok ? await loadOwnerDashboard(client, request.ownerSearch)
     : await loadCatalogTaxonomyPage(client, search, view);
   if (result.kind === "redirect" || result.kind === "empty") {
     return <OwnerDashboardView data={result} module="catalog" />;
   }
-  const title = view.resource === "settings" ? "Ajustes del catálogo" : view.resource === "groups" ? "Grupos del producto" : "Categorías";
+  const title = view.resource === "settings" ? "Ajustes del catálogo" : view.resource === "groups" ? "Grupos del producto" : view.resource === "options" ? "Variedades y opciones" : "Categorías";
   if (result.kind !== "ready" && result.kind !== "selected") {
     const messages = {
       invalid: "La consulta del catálogo no es válida.",
@@ -39,9 +49,14 @@ export async function CatalogTaxonomyPage({ search, view }: { search: CatalogSea
     </main>;
   }
   const owner = result.kind === "selected" ? result : result.owner;
+  const optionItem = result.kind === "ready" && result.data.kind === "list" ? result.data.parents.item : undefined;
+  if (choosingOption && request.ok && request.query.itemId && !optionItem) throw Error("missing_checked_option_item");
   return <OwnerShell ownedBusinesses={owner.businesses} selectedBusiness={owner.business}
     activeModule="catalog" account={owner.account} pagination={owner.pagination}>
-    {result.kind === "selected" && request.ok
+    {choosingOption && request.ok
+      ? <CatalogOptionCreationView context={{ kind: "option_creation_chooser", owner, request,
+        item: optionItem ?? null }} readKey={randomUUID()} />
+      : result.kind === "selected" && request.ok
       ? <CatalogGroupCreationView context={{ kind: "creation_chooser", owner, request }} readKey={randomUUID()} />
       : result.kind === "ready" && <CatalogTaxonomyView result={result} readKey={randomUUID()} />}
   </OwnerShell>;
