@@ -5,8 +5,8 @@
 The navigation/query foundation is prepared first. Its section components are not
 yet mounted in the legacy catalog: no links to unfinished pages are advertised.
 Record routes and form integration remain subsequent work units. A server-only,
-injectable taxonomy read slice now exists; T3 is still partial (Products and
-bounded choices are not implemented by this slice).
+injectable taxonomy/Products read slice now exists; T3 is still partial (bounded
+choices and their HTTP integration are not implemented).
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -41,7 +41,7 @@ Breadcrumbs preserve the current section's validated list context.
 
 `catalog/catalog-page-data.ts` exports `loadCatalogTaxonomyPage(client, search,
 view)`, `CATALOG_PAGE_SIZE` (25), and types `TaxonomyResource`, `TaxonomyView`,
-`CategorySummary`, `ItemParent`, `GroupSummary`, `OptionSummary`, `TaxonomyRecord`,
+`CategorySummary`, `ItemParent`, `GroupSummary`, `OptionSummary`, `OptionDirectorySummary`, `TaxonomyRecord`,
 `CatalogPagePagination`, `TaxonomyPageData`, `CatalogTaxonomyPage`.
 Supply the current request's session Supabase SDK client, never a privileged or
 cached client. The module is marked `server-only`; it has no mutations or HTTP
@@ -53,19 +53,23 @@ Supported resource/mode combinations:
 - Categories: list/new/detail.
 - Groups: list/new require `itemId`; detail derives its item and checks any
   supplied `itemId` against that item.
-- Options: list/new require `groupId`; its item's ownership is also checked.
-  Detail derives group → item and checks both supplied ancestry IDs.
+- Options: list is the central business directory, optionally filtered by
+  `itemId` and/or `groupId`. New still requires `groupId`. Detail derives
+  group → item and checks both supplied ancestry IDs. Every list option includes
+  its checked `group: GroupSummary` and `item: ItemParent`; these are existing
+  product-specific options, not shared/global varieties.
 - Settings: singleton list mode only, reusing the owner's storefront and
   `business_catalog_settings`; successful absence means surcharge zero.
 
-These contextual collection requirements are narrower than the navigation
-parser. A context-free options directory, item-only option search, Products,
-category labels/profile-kind summaries and category/component choices remain
-future read units. There are no placeholder results for them: this API's view
-resource type excludes Products; unsupported runtime requests return `invalid`.
-No capability inference (including RPC-undefined shortcuts) is introduced.
-Future Products work must use the existing strict capability classifier and
-must not downgrade malformed active profiles to legacy.
+Groups/new Options contextual requirements are narrower than the navigation
+parser. Category/component choices remain a future unit. This taxonomy API's
+view resource type excludes Products; use the separate reader below. Unsupported
+runtime requests return `invalid`. Item-only Options filtering uses the existing
+inner group relationship, not an incomplete group-ID selector. Directory parent
+labels use at most one business-scoped `.in("id", distinctPageIds)` group
+batch and one item batch (each at most 25 IDs/rows). Explicitly checked context
+parents are reused from request-local caches, so a group/item context needs no
+redundant label batch. Unrelated parents are never loaded.
 
 On success the result is `{kind: "ready", owner, request, data}`. `owner` is the
 fresh selected dashboard result, `request` the parsed catalog context. `data` is:
@@ -89,8 +93,11 @@ all matching rows fit. Never use a page as a complete selection library.
 Search is a single SDK `ilike` name filter with escaped backslash, percent,
 underscore and star alias; no interpolated OR expression is used.
 
-All catalog queries include `business_id`. Parent/detail/singleton reads request
-exact counts and at most two rows to detect duplicates and backend row caps.
+All catalog queries include `business_id`. Detail/explicit-context singleton
+reads request exact counts and at most two rows. List label batches request exact
+counts and limit 25; count must equal returned length, IDs must be unique members
+of the requested set, and every requested parent must resolve. Truncation never
+produces partial labels.
 Missing/foreign parents, contradictory ancestry or absent records yield only
 `{kind: "missing"}`. Missing counts, truncation, malformed/foreign payloads,
 duplicate IDs, permission/transport errors yield only `{kind: "unavailable"}`;
@@ -98,6 +105,47 @@ no backend details or partial private results escape. Invalid syntax or missing
 required contextual parents yields `{kind: "invalid"}` before even auth reads.
 Non-selected dashboard outcomes (redirect/invalid/unavailable/missing/empty) are
 forwarded without catalog reads or fallback to another business.
+
+## Server Products reads (partial T3)
+
+`catalog/catalog-item-page-data.ts` exports `loadCatalogItemPage(client, search,
+view)` and types `ItemView`, `ItemProfileSummary`, `CatalogItemSummary`,
+`CatalogItemPageData`, `CatalogItemPage`. `ItemView` fixes resource to `items`.
+It uses the same invalid/fresh-owner/failure envelope as taxonomy and the same
+25-row pagination/count/order/search conventions. Every table read is scoped to
+the resolved owner business. No mutations, HTTP handler, React or page mount.
+
+Successful `data` is `{kind: "list", rows, parents, pagination, capability}`,
+`{kind: "detail", record, parents, capability}`, or
+`{kind: "new", parents, capability}`. `parents` has optional checked `category`.
+List/new validate explicit `categoryId`; detail ignores category origin, q and
+page for identity, and resolves the record's actual category. Missing/foreign
+IDs never trigger another-business lookup or default selection.
+
+`CatalogItemSummary` freezes these fields: `id`, `business_id`, `category_id`,
+`name`, `description`, `price_minor`, `currency`, `is_available`, `sort_order`,
+`photo_path`, `photo_version`, `category: CategorySummary`, and
+`profile: ItemProfileSummary`. Photo version retains a nonnegative safe integer
+or canonical bigint decimal string (through signed bigint maximum). The photo
+path is existing editor input, not a freshly signed/trusted image URL.
+List category labels use at most one business-scoped `.in("id", distinctPageIds)`
+batch, with at most 25 IDs/rows and certified counts/membership. Explicit category
+context is checked once and reused, avoiding a redundant batch. Detail/new keep
+singleton context checks. These are complete page labels, not a selection library.
+
+`capability` is `ready` or `legacy_only`; `unavailable` produces only the failure
+envelope. The existing strict capability classifier is reused: only the exact
+typed missing no-argument capability supports old schema. No undefined-RPC,
+transport, permission or malformed-response legacy fallback exists.
+Ready capability reads only listed/selected item IDs, exact count and limit 26,
+projecting `business_id,item_id,version,is_active,kind:document->>kind`.
+No full profile documents, matrices, components or catalog snapshots are read.
+`profile` is `{kind, version, isActive}`: active kind must be explicitly
+`standard|pizza|dozen|combo`; absent/inactive is `legacy` (absent version 0).
+Malformed active kind fails closed, never name-inferred. This metadata does not
+validate a full configuration or replace the selected editor's existing reader.
+Empty pages/new do not query item profiles. Every returned field is projected;
+SDK extras/private documents are not returned.
 
 ## Focused verification
 

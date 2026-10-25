@@ -6,7 +6,7 @@ const read = (f, resource = 'categories', search = {}, view = {}) => api().loadC
 test('invalid input and missing required contextual parents perform zero queries and preserve state', async () => {
   for (const [resource, input, view] of [
     ['categories', { page: '01' }, {}], ['categories', { q: ['x'] }, {}],
-    ['groups', {}, {}], ['options', { itemId }, {}],
+    ['groups', {}, {}], ['options', {}, { mode: 'new' }],
     ['categories', {}, { mode: 'detail', id: 'bad' }], ['items', {}, {}],
   ]) {
     const f = fixture(); const before = structuredClone(f.source); Object.freeze(input);
@@ -61,7 +61,7 @@ test('contextual group and option pages check all supplied ancestry with scoped 
     assert.equal(result.kind, 'ready'); assert.equal(result.data.rows.length, 1);
     for (const c of f.catalogCalls()) {
       assert.ok(c.eq.some(([key, value]) => key === 'business_id' && value === businessId));
-      assert.equal(c.count, 'exact'); assert.ok(c.limit === 2 || c.range?.[1] === 24);
+      assert.equal(c.count, 'exact'); assert.ok(c.limit === 2 || c.in?.[0] === 'id' && c.limit === 25 || c.range?.[1] === 24);
     }
     assert.deepEqual(result.data.pagination.collectionComplete, true);
   }
@@ -118,6 +118,65 @@ test('new-mode context is checked before returning readiness, with no writable o
     assert.equal(result.kind, 'ready'); assert.equal(result.data.kind, 'new'); assert.deepEqual(f.source, before);
   }
   assert.deepEqual(await read(fixture(), 'options', { groupId: foreignId }, { mode: 'new' }), { kind: 'missing' });
+});
+
+test('central Options directory and item filter return checked product/group labels without shared varieties', async () => {
+  for (const search of [{}, { itemId }, { groupId }]) {
+    const f = fixture(); const r = await read(f, 'options', search);
+    assert.equal(r.kind, 'ready'); assert.deepEqual(r.data.rows[0], { ...option, group, item: { id: itemId, business_id: businessId, name: 'Producto' } });
+    for (const c of f.catalogCalls()) { assert.equal(c.count, 'exact'); assert.ok(c.eq.some(([k, v]) => k === 'business_id' && v === businessId)); assert.ok(c.limit === 2 || c.in?.[0] === 'id' && c.limit === 25 || c.range?.[1] === 24); }
+  }
+  const f = fixture({ tables: { catalog_option_groups: [{ ...group, item_id: foreignId }] } });
+  const filtered = await read(f, 'options', { itemId });
+  assert.equal(filtered.kind, 'ready'); assert.deepEqual(filtered.data.rows, []); assert.equal(filtered.data.pagination.total, 0);
+});
+
+test('directory resolves every page parent beyond first 25 groups without truncating a selector', async () => {
+  const groups = Array.from({ length: 30 }, (_, n) => ({ ...group, id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`, name: `Group ${n}` }));
+  const options = groups.map((g, n) => ({ ...option, id: g.id, group_id: g.id, sort_order: n }));
+  const f = fixture({ tables: { catalog_option_groups: groups, catalog_options: options } });
+  const r = await read(f, 'options', { page: '1', itemId });
+  assert.equal(r.kind, 'ready'); assert.equal(r.data.pagination.total, 30); assert.equal(r.data.rows.length, 5);
+  assert.deepEqual(r.data.rows.map(row => row.group.name), ['Group 25', 'Group 26', 'Group 27', 'Group 28', 'Group 29']);
+  const labels = f.catalogCalls().filter(c => c.table === 'catalog_option_groups');
+  assert.equal(labels.length, 1, 'at most one group label batch per list page');
+  assert.deepEqual(labels[0].in, ['id', groups.slice(25).map(g => g.id)]);
+  assert.equal(labels[0].limit, 25); assert.equal(labels[0].count, 'exact');
+  assert.equal(f.catalogCalls().filter(c => c.table === 'catalog_items').length, 1);
+  const readCall = f.catalogCalls().find(c => c.table === 'catalog_options');
+  assert.ok(readCall.fields.includes('catalog_option_groups!inner(item_id)'));
+  assert.ok(readCall.eq.some(([k, v]) => k === 'catalog_option_groups.item_id' && v === itemId));
+  const distinctGroups = groups.map(g => ({ ...g, item_id: g.id }));
+  const distinctItems = groups.map(g => ({ id: g.id, business_id: businessId, name: `Item ${g.name}` }));
+  const directory = fixture({ tables: { catalog_option_groups: distinctGroups, catalog_items: distinctItems, catalog_options: options } });
+  const page = await read(directory, 'options', { page: '1' });
+  assert.equal(page.kind, 'ready'); assert.deepEqual(page.data.rows.map(row => row.item.name), groups.slice(25).map(g => `Item ${g.name}`));
+  assert.equal(directory.catalogCalls().length, 3, 'one options page, one group batch, one item batch');
+  for (const table of ['catalog_option_groups', 'catalog_items']) {
+    const calls = directory.catalogCalls().filter(c => c.table === table);
+    assert.equal(calls.length, 1); assert.deepEqual(calls[0].in, ['id', groups.slice(25).map(g => g.id)]);
+    assert.equal(calls[0].count, 'exact'); assert.equal(calls[0].limit, 25);
+    assert.deepEqual(calls[0].eq, [['business_id', businessId]]);
+  }
+  for (const table of ['catalog_option_groups', 'catalog_items']) {
+    for (const change of [
+      r => ({ ...r, data: r.data.slice(0, 1) }),
+      r => ({ ...r, data: r.data.map((row, n) => n === 1 ? r.data[0] : row) }),
+      r => ({ ...r, data: r.data.map((row, n) => n === 1 ? { ...row, id: foreignId } : row) }),
+    ]) {
+      const bad = fixture({ tables: { catalog_option_groups: distinctGroups, catalog_items: distinctItems, catalog_options: options }, change: (r, c) => c.table === table && c.in ? change(r) : r });
+      assert.deepEqual(await read(bad, 'options', { page: '1' }), { kind: 'unavailable' });
+    }
+  }
+  const mismatch = fixture({ tables: { catalog_items: [{ id: itemId, business_id: businessId, name: 'A' }, { id: foreignId, business_id: businessId, name: 'B' }] } });
+  assert.deepEqual(await read(mismatch, 'options', { groupId, itemId: foreignId }), { kind: 'missing' });
+});
+
+test('directory parent labels fail closed on missing, truncated or foreign ancestry', async () => {
+  for (const change of [r => ({ ...r, data: [], count: 0 }), r => ({ ...r, count: 2 }), r => ({ ...r, data: [{ ...group, business_id: foreignId }] })]) {
+    const f = fixture({ change: (r, c) => c.table === 'catalog_option_groups' ? change(r) : r });
+    assert.ok(['missing', 'unavailable'].includes((await read(f, 'options')).kind));
+  }
 });
 
 test('Settings reuses storefront and certified singleton surcharge with successful absence default only', async () => {

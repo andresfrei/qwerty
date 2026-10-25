@@ -10,7 +10,8 @@ export type CategorySummary = { id: string; business_id: string; name: string; s
 export type ItemParent = { id: string; business_id: string; name: string };
 export type GroupSummary = CategorySummary & { item_id: string; selection_mode: "distinct" | "quantity"; min_select: number; max_select: number };
 export type OptionSummary = CategorySummary & { group_id: string; price_delta_minor: number; is_available: boolean };
-export type TaxonomyRecord = CategorySummary | GroupSummary | OptionSummary;
+export type OptionDirectorySummary = OptionSummary & { item: ItemParent; group: GroupSummary };
+export type TaxonomyRecord = CategorySummary | GroupSummary | OptionSummary | OptionDirectorySummary;
 export type CatalogPagePagination = {
   page: number; pageSize: number; total: number; hasMore: boolean;
   pageComplete: true; collectionComplete: boolean;
@@ -66,10 +67,11 @@ export async function loadCatalogTaxonomyPage(client: SupabaseClient | null, sea
   const { mode, query } = request;
   const resource = request.resource as TaxonomyResource;
   // Contextual collections are not a global variety library. Details derive their real ancestry.
-  if (mode !== "detail" && (resource === "groups" && !query.itemId || resource === "options" && !query.groupId)) return { kind: "invalid" };
+  if (mode !== "detail" && (resource === "groups" && !query.itemId || resource === "options" && mode === "new" && !query.groupId)) return { kind: "invalid" };
   const owner = await loadOwnerDashboard(client, request.ownerSearch);
   if (owner.kind !== "selected") return owner;
   if (!client) return { kind: "unavailable" };
+  const sdk = client;
   const business = owner.business.id;
   try {
     async function single(table: string, columns: string, key: string, value: string): Promise<unknown> {
@@ -80,20 +82,26 @@ export async function loadCatalogTaxonomyPage(client: SupabaseClient | null, sea
       return rows[0];
     }
     const parents: Parents = {};
+    const items = new Map<string, ItemParent>();
+    const groups = new Map<string, GroupSummary>();
     async function requireItem(itemId: string): Promise<void> {
-      if (parents.item?.id === itemId) return;
+      const cached = items.get(itemId);
+      if (cached) { parents.item = cached; return; }
       const value = await single("catalog_items", "id,business_id,name", "id", itemId);
       if (!object(value) || value.business_id !== business || value.id !== itemId || !name(value.name)) throw Error("unavailable");
       parents.item = { id: itemId, business_id: business, name: value.name };
+      items.set(itemId, parents.item);
     }
     async function requireGroup(groupId: string): Promise<void> {
-      if (parents.group?.id === groupId) return;
+      const cached = groups.get(groupId);
+      if (cached) { parents.group = cached; await requireItem(cached.item_id); return; }
       const value = await single(tables.groups, fields.groups, "id", groupId);
       const group = parseRow(value, "groups", business) as GroupSummary;
       if (group.id !== groupId) throw Error("unavailable");
       if (query.itemId && group.item_id !== query.itemId) throw new Missing();
       await requireItem(group.item_id);
       parents.group = group;
+      groups.set(groupId, group);
     }
     if (query.itemId) await requireItem(query.itemId);
     if (query.groupId) await requireGroup(query.groupId);
@@ -121,17 +129,65 @@ export async function loadCatalogTaxonomyPage(client: SupabaseClient | null, sea
       }
       data = { kind: "detail", record, parents };
     } else {
-      let read = client.from(tables[resource]).select(fields[resource], { count: "exact" }).eq("business_id", business);
-      if (resource === "groups") read = read.eq("item_id", query.itemId!);
-      if (resource === "options") read = read.eq("group_id", query.groupId!);
+      // An item-only directory uses the real group relationship, never a truncated group-ID selector.
+      const columns = resource === "options" && query.itemId && !query.groupId
+        ? `${fields.options},catalog_option_groups!inner(item_id)` : fields[resource];
+      let read = client.from(tables[resource]).select(columns, { count: "exact" }).eq("business_id", business);
+      if (resource === "groups" && query.itemId) read = read.eq("item_id", query.itemId);
+      if (resource === "options" && query.groupId) read = read.eq("group_id", query.groupId);
+      if (resource === "options" && query.itemId && !query.groupId) read = read.eq("catalog_option_groups.item_id", query.itemId);
       // One SDK filter value, never an interpolated PostgREST OR expression. '*' aliases '%'.
       if (query.q) read = read.ilike("name", `%${query.q.replace(/[\\%_*]/g, c => `\\${c === "*" ? "%" : c}`)}%`);
       const offset = query.page * CATALOG_PAGE_SIZE;
       const result = await read.order("sort_order", { ascending: true }).order("id", { ascending: true }).range(offset, offset + CATALOG_PAGE_SIZE - 1);
-      const rows = counted(result, offset, CATALOG_PAGE_SIZE).map(value => parseRow(value, resource, business));
+      let rows = counted(result, offset, CATALOG_PAGE_SIZE).map(value => parseRow(value, resource, business));
       if (new Set(rows.map(row => row.id)).size !== rows.length) throw Error("unavailable");
       for (const row of rows) {
-        if ("item_id" in row && row.item_id !== query.itemId || "group_id" in row && row.group_id !== query.groupId) throw Error("unavailable");
+        if ("item_id" in row && row.item_id !== query.itemId || "group_id" in row && query.groupId && row.group_id !== query.groupId) throw Error("unavailable");
+      }
+      if (resource === "options") {
+        async function batch(table: string, columns: string, ids: string[]): Promise<unknown[]> {
+          if (!ids.length) return [];
+          const result = await sdk.from(table).select(columns, { count: "exact" })
+            .eq("business_id", business).in("id", ids).limit(CATALOG_PAGE_SIZE);
+          const found = counted(result, 0, CATALOG_PAGE_SIZE);
+          if (result.count !== found.length || found.length > ids.length) throw Error("unavailable");
+          return found;
+        }
+        const groupIds = new Set<string>();
+        for (const row of rows) {
+          if (!("group_id" in row)) throw Error("unavailable");
+          groupIds.add(row.group_id);
+        }
+        const missingGroups = [...groupIds].filter(groupId => !groups.has(groupId));
+        for (const value of await batch(tables.groups, fields.groups, missingGroups)) {
+          const group = parseRow(value, "groups", business) as GroupSummary;
+          if (!missingGroups.includes(group.id) || groups.has(group.id)) throw Error("unavailable");
+          if (query.itemId && group.item_id !== query.itemId) throw new Missing();
+          groups.set(group.id, group);
+        }
+        const itemIds = new Set<string>();
+        for (const groupId of groupIds) {
+          const group = groups.get(groupId);
+          if (!group) throw new Missing();
+          itemIds.add(group.item_id);
+        }
+        const missingItems = [...itemIds].filter(itemId => !items.has(itemId));
+        for (const value of await batch("catalog_items", "id,business_id,name", missingItems)) {
+          if (!object(value) || !id(value.id) || !missingItems.includes(value.id) || items.has(value.id)
+            || value.business_id !== business || !name(value.name)) throw Error("unavailable");
+          items.set(value.id, { id: value.id, business_id: business, name: value.name });
+        }
+        if ([...itemIds].some(itemId => !items.has(itemId))) throw new Missing();
+        const enriched: OptionDirectorySummary[] = [];
+        for (const row of rows) {
+          if (!("group_id" in row)) throw Error("unavailable");
+          const group = groups.get(row.group_id);
+          const item = group && items.get(group.item_id);
+          if (!group || !item) throw Error("unavailable");
+          enriched.push({ ...row, group, item });
+        }
+        rows = enriched;
       }
       const total = result.count!;
       data = { kind: "list", rows, parents, pagination: {
