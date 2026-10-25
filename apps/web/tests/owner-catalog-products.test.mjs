@@ -46,6 +46,24 @@ test('detail identity ignores origin category/search/page and mounts only its cl
   assert.doesNotMatch(html, /Otro producto/);
 });
 
+test('only selected detail mounts one keyed paged profile, never a partial products array or list/new/read-only editor', async () => {
+  const f = products();
+  f.sdk.source.catalog_items.push({ ...f.sdk.source.catalog_items[0], id: recordId, name: 'Otro' });
+  f.markup(await f.page('list')({ searchParams: Promise.resolve(f.search) }));
+  assert.equal(f.editors.filter(e => e.profile).length, 0);
+  f.markup(await f.page('detail')({ params: Promise.resolve({ itemId }), searchParams: Promise.resolve(f.search) }));
+  const profiles = f.editors.filter(e => e.profile); assert.equal(profiles.length, 1);
+  assert.deepEqual(profiles[0].profile, { scope: { accountId: f.frames[0].page.accountId, businessId, itemId }, pagedComponents: true });
+  assert.equal('products' in profiles[0].profile, false);
+  const profileNode = descendants(f.frames[0].editable).find(n => n.type?.name === 'CatalogProfileEditor');
+  assert.ok(profileNode.key.includes(itemId));
+  const ro = products({ readOnly: true });
+  ro.markup(await ro.page('detail')({ params: Promise.resolve({ itemId }), searchParams: Promise.resolve(ro.search) }));
+  assert.equal(ro.editors.length, 0);
+  const creation = products(); creation.markup(await creation.page('new')({ searchParams: Promise.resolve(creation.search) }));
+  assert.equal(creation.editors.filter(e => e.profile).length, 0);
+});
+
 test('read-only arrival has no classic/photo/profile widget invocations', async () => {
   const f = products({ readOnly: true });
   const html = f.markup(await f.page('detail')({ params: Promise.resolve({ itemId }), searchParams: Promise.resolve(f.search) }));

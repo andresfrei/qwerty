@@ -5,11 +5,15 @@ import { catalogChoiceScopeKey, createCatalogChoiceController, type CatalogChoic
 
 export type CatalogChoicePickerProps = {
   scope: CatalogChoiceScope; seed?: Choice | null; label: string;
+  // Explicit display authority from a validated current snapshot, never a new selection.
+  selectedMetadata?: { scope: CatalogChoiceScope; choice: Choice } | null;
   onSelect(choice: Choice): void; fetcher?: typeof fetch;
 };
 const control = "min-h-11 rounded-lg border border-[var(--line)] px-3 py-2 text-sm disabled:opacity-50";
 /** No form, named search control or hidden mutation field: the consumer owns payloads. */
-export function CatalogChoicePicker({ scope, seed = null, label, onSelect, fetcher }: CatalogChoicePickerProps) {
+export function CatalogChoicePicker({ scope, seed = null, selectedMetadata = null, label, onSelect, fetcher }: CatalogChoicePickerProps) {
+  const metadata = useRef(selectedMetadata);
+  metadata.current = selectedMetadata;
   const key = catalogChoiceScopeKey(scope), current = useRef(key);
   current.current = key;
   const initial = useRef({ scope, seed });
@@ -27,12 +31,17 @@ export function CatalogChoicePicker({ scope, seed = null, label, onSelect, fetch
   }, [key, fetcher]);
   const state = model?.scopeKey === key ? model : null;
   const selected = state ? state.selected : seed;
+  function displayed(choice: Choice): Choice {
+    const override = metadata.current;
+    return override && catalogChoiceScopeKey(override.scope) === key && override.choice.id === choice.id
+      ? override.choice : choice;
+  }
   const q = search.key === key ? search.value : "";
   function read(page = 0, query = q) {
     if (controller.current?.snapshot().scopeKey === key) void controller.current.load(query, page);
   }
   return <fieldset className="grid min-w-0 gap-3 rounded-xl border border-[var(--line)] p-4" aria-label={label}>
-    <p className="text-sm font-bold">{label}: {selected?.label ?? "Sin seleccionar"}</p>
+    <p className="text-sm font-bold">{label}: {selected ? displayed(selected).label : "Sin seleccionar"}</p>
     <label className="text-sm">Buscar {label.toLowerCase()}
       <input className={`mt-1 w-full ${control}`} value={q} maxLength={100}
         onChange={event => setSearch({ key, value: event.target.value })}
@@ -48,8 +57,8 @@ export function CatalogChoicePicker({ scope, seed = null, label, onSelect, fetch
         <button type="button" className={`w-full text-left ${control}`} aria-pressed={selected?.id === row.id}
           onClick={() => {
             const c = controller.current;
-            if (current.current === key && c?.snapshot().scopeKey === key && c.select(row.id)) onSelect(row);
-          }}>{row.label}</button>
+            if (current.current === key && c?.snapshot().scopeKey === key && c.select(row.id)) onSelect(displayed(row));
+          }}>{selected?.id === row.id ? displayed(row).label : row.label}</button>
       </li>)}</ul>
       <div className="flex flex-wrap gap-3">
         {state.page > 0 && <button type="button" className={control} onClick={() => read(state.page - 1, state.q)}>Anterior</button>}

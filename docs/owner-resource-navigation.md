@@ -4,10 +4,10 @@
 
 The navigation/query and classic form foundations are accepted (T2–T4).
 The legacy catalog has not been cut over; no links to unfinished pages are advertised.
-T5 now has Products list/new/detail, paged category choices, category changes and
-GET filters, not full Products completion. Server-only taxonomy/Products readers
-and the bounded choices GET endpoint exist. Profile/component integration and
-taxonomy/settings resource pages remain T5–T6 work.
+T5 now has Products list/new/detail, paged category choices, category changes,
+GET filters and the selected record's advanced profile editor with paged component
+choices. Server-only taxonomy/Products readers and the bounded choices GET endpoint
+exist. Taxonomy/settings pages and root/store navigation cutover remain T6–T7 work.
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -226,7 +226,7 @@ Use prior scoped detail/configuration readers for existing selections and final
 validation. Never automatically repeat writes after a choice fetch or claim a
 choice grants mutation authority. No React selector/page is mounted by T3.
 
-## Products UI slice (partial T5)
+## Products resource UI (T5 source integration)
 
 `/owner/catalog/items`, `/owner/catalog/items/new` and
 `/owner/catalog/items/[itemId]` are dynamic server pages.
@@ -245,8 +245,9 @@ validated route context, preserving storePage/q/page/categoryId in record/back
 links. The list has GET search, certified totals and previous/next links; it mounts
 no classic/photo/profile controllers. No list page is used as a selector library.
 
-Detail mounts one `update_product` scoped form and one existing `PhotoEditor`, only
-inside the mandatory frame's editable slot. The read-only slot is summary-only.
+Detail mounts one `update_product` scoped form, one existing `PhotoEditor` and one
+keyed `CatalogProfileEditor` in opt-in paged-component mode, only inside the
+mandatory frame's editable slot. The read-only slot is summary-only.
 Update identity is the actual record ID; the chosen category is seeded from the
 fresh record's actual category, never its origin filter. Picker changes update only
 the hidden category, retaining the same record form key and other inputs. Public
@@ -299,12 +300,47 @@ No automatic first-row selection, mutation field, nested form or search Enter
 submission. The consumer owns selected hidden fields; selections survive paging,
 search and safe GET retry even when absent from the current certified page.
 
-**Not delivered:** profile editor integration, component/hierarchy selectors or
-profile eligibility/CAS/pricing acceptance. Generic item/group choices are ready
-for that next unit, not a working profile UI or complete product library. Profile
-kind is metadata only; no fake advanced editor is mounted.
-Root entry/shared store-switch integration remains T7; these pages do not change
-OwnerShell's current root destinations. This partial does not complete S1/S4/T5.
+An optional `selectedMetadata:{scope:CatalogChoiceScope,choice:Choice}` is an explicit
+presentation-only authority from a validated current snapshot. Full serialized scope
+and selected ID must match. It updates the selected header, matching selected row
+and reselect callback metadata, without changing IDs, query/page/rows/loading,
+calling onSelect automatically, fetching or remounting. Same-scope old handlers use
+the current override; foreign scope/other IDs are ignored. Without this opt-in,
+initial/replacement seed props do not clobber a later selected choice-page label.
+Only the paged profile consumer currently opts in, and only when catalog/children
+contains the selected ID; its fallback choice-page seed is not that authority.
+
+### Selected advanced profile editor
+
+Detail passes `{scope:{accountId,businessId,itemId},pagedComponents:true}` with a
+key containing those three fresh ready-result IDs. It passes no products array.
+List, New and read-only slots never mount an advanced controller. Mounting restores
+its existing tab intent; the default explicit “Consultar configuración avanzada”
+button remains the only initial configuration GET. Candidate selection alone
+neither reads configuration nor saves. Explicit Add delegates to existing
+`addComponent`, which freshly GET-validates the candidate's own scoped configuration,
+currency and non-nested kind; availability/choice metadata is not eligibility.
+
+Active existing child labels and all group/option controls come from the validated
+root configuration catalog and explicit child snapshots, not the current choices
+page. Repeated child products retain independent component IDs, quantities, fixed
+picks and allowlists. Seeds use explicit active parsed kind or absent/inactive legacy,
+never names. The unchanged controller owns profile CAS/durable unknown intent;
+N6's classic RAM session is not repurposed as profile persistence.
+
+Recognized inactive combos may reference children absent from their root GET.
+Existing behavior is retained: activation keeps that draft and its component IDs,
+but save fails explicitly without a POST if dependencies cannot be validated.
+There is no silent drop/truncation or automatic hydration API. Unknown/capability
+classification and pizza/dozen/standard/matrix/pricing rules remain unchanged.
+See [owner-catalog-configurations.md](owner-catalog-configurations.md) for the
+legacy/paged prop contract and controller limits.
+
+The scoped Products source consumers are implemented, but the final T5 verdict
+awaits parent review of the mounted selected-label correction; the original75/75
+missed that consumer display assertion. This is not full Catalog or live acceptance. Root entry/shared store-switch integration and mounted-flow verification
+remain T7; these pages do not change OwnerShell's current root destinations.
+S1/S4 overall still require the taxonomy/settings pages and integration.
 
 ## Classic form foundation (T4 contracts)
 

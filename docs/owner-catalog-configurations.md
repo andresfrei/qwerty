@@ -171,16 +171,54 @@ Lifecycle:
 `CatalogProfileEditorProps`:
 
 ```ts
-{scope:{accountId,businessId,itemId},
- products:{id:string,name:string,currency:string}[]}
+{scope:{accountId,businessId,itemId}} & (
+  | {products:{id:string,name:string,currency:string}[]; pagedComponents?:false}
+  | {pagedComponents:true; products?:never}
+)
 ```
 
-`products` comes from the existing selected-business owner page, not the scoped
-GET. The component is keyed by account+business+item inside each existing product
-edit section, outside all classic forms. The page passes its server-confirmed
-account ID and selected owned business. Only the advanced editor's controls lock;
-other products/classic actions are not disabled by an advanced operation.
-Opening the read button GETs current state; mounting restores tab intent first.
+The legacy/default branch is unchanged: `products` comes from the existing selected
+business owner page, not scoped GET; its same-currency/non-self array dropdown and
+labels remain intact. The resource detail route explicitly opts into
+`pagedComponents:true`, passing no empty/single-item/25-row substitute array. Both
+modes retain the manual initial read button and all existing profile controls.
+Mounting restores tab intent first, not an automatic GET/save.
+
+Resource detail keys this one editor by fresh account+business+item inside N6's
+editable slot, outside classic forms; list/New/read-only slots mount none. The
+advanced controller still independently owns its durable tab intent, CAS and
+unknown/conflict/adoption lifecycle. Its operations do not become classic gate
+operations or change classic RAM durability. N6 can disable the containing
+editable fieldset while a classic operation is locked.
+
+Paged mode uses `CatalogChoicePicker` kind items, scoped to actor/business/record.
+Selection alone changes the candidate ID, without configuration GET/POST. Explicit
+Add calls unchanged `addComponent` for a fresh selected-child GET; the actual
+configuration supplies currency and nested-kind checks. Choice kind/availability
+is not write authority, and temporarily unavailable products remain structurally
+editable. No configuration lookup API or whole-business snapshot is introduced.
+
+Active-reference labels, child group/option controls and retained candidate seeds
+come from validated `state.catalog.items/profiles` and `state.children`, independently
+of search/page. Seeds use parsed active kind, otherwise absent/inactive legacy;
+no name inference. Each repeated child retains a separate componentId and controls.
+For the selected candidate, validated current snapshots additionally supply the
+picker's opt-in `selectedMetadata:{scope,choice}` presentation authority. Exact scope
+and selected ID matching updates both the mounted selected header and selected row,
+including later reselect callbacks, without resetting query/page/selection or issuing
+GET/POST. Choice-page fallback seeds alone never enable this override. Default
+legacy/category/group picker seed priority remains unchanged. The original75/75
+missed this mounted-display edge; corrected-candidate parent recheck remains pending.
+Root/active-ref hierarchy remains exact-count-certified by the existing gateway
+(group/options limit1001 with accepted maximum1000; the projected hierarchy
+retains its 32-component and 2MiB read bounds, not a larger save-document budget).
+
+A recognized inactive combo's children are intentionally not resolved by its root
+GET. Reactivating preserves that draft, but missing dependencies can produce the
+existing explicit local validation failure without a save or silent component
+drop. This UI does not auto-hydrate them or weaken validation. Existing unknown
+intent recovery may explicitly GET missing intended children for read-only context;
+that behavior is unchanged and never authorizes a write retry.
 
 Actual labeled controls, not a JSON textarea:
 

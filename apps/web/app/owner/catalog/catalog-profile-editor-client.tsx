@@ -4,13 +4,15 @@ import { AsyncActionButton } from "@/app/components/async-action-button";
 import type { Component, ProfileDocument, MatrixRow, ProfileItem } from "../../lib/catalog-profiles";
 import { parseProfileDocument } from "../../lib/catalog-profiles";
 import { moneyMinor, moneyText } from "./catalog-editor";
+import { CatalogChoicePicker } from "./catalog-choice-picker";
+import type { CatalogItemChoice } from "./catalog-choices-gateway";
 import { createProfileEditorController, profileIntentKey, type ProfileEditorController, type ProfileEditorScope, type ProfileEditorState } from "./catalog-profile-editor";
 
-export type CatalogProfileEditorProps = {
-  scope: ProfileEditorScope;
-  // Explicit owner-page context, not an assumption that scoped GET lists a store.
-  products: Pick<ProfileItem, "id" | "name" | "currency">[];
-};
+export type CatalogProfileEditorProps = { scope: ProfileEditorScope } & (
+  // Explicit legacy owner-page context, not an assumption that scoped GET lists a store.
+  | { products: Pick<ProfileItem, "id" | "name" | "currency">[]; pagedComponents?: false }
+  | { pagedComponents: true; products?: never }
+);
 const input = "mt-1 min-h-11 w-full min-w-0 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
 const button = "min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 text-sm font-extrabold disabled:opacity-50";
 const secondary = "min-h-11 rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-bold disabled:opacity-50";
@@ -19,13 +21,15 @@ const field = (label: string, control: ReactNode, key?: string) => <label key={k
 const pairKey = (row: MatrixRow) => `${row.sizeOptionId}:${row.flavorOptionId}`;
 const integerText = (value: string) => /^\d+$/.test(value) ? Number(value) : Number.NaN;
 
-export function CatalogProfileEditor({ scope, products }: CatalogProfileEditorProps) {
+export function CatalogProfileEditor(props: CatalogProfileEditorProps) {
+  const { scope } = props;
   const controller = useRef<ProfileEditorController | null>(null);
   const [model, setModel] = useState<ProfileEditorState | null>(null);
   const [open, setOpen] = useState(false);
   const [replaceUnknown, setReplaceUnknown] = useState(false);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [childId, setChildId] = useState("");
+  const [choice, setChoice] = useState<{ key: string; value: CatalogItemChoice } | null>(null);
   const scopeKey = profileIntentKey(scope);
   useEffect(() => {
     const instance = createProfileEditorController({accountId:scope.accountId,businessId:scope.businessId,itemId:scope.itemId}, {
@@ -37,7 +41,7 @@ export function CatalogProfileEditor({ scope, products }: CatalogProfileEditorPr
       onChange: state => { if (controller.current === instance) setModel(state); },
     });
     controller.current = instance;
-    setOpen(false); setReplaceUnknown(false); setPrices({}); setChildId("");
+    setOpen(false); setReplaceUnknown(false); setPrices({}); setChildId(""); setChoice(null);
     instance.restore(); setModel(instance.snapshot());
     return () => { instance.dispose(); if (controller.current === instance) controller.current = null; };
   }, [scope.accountId, scope.businessId, scope.itemId]);
@@ -116,16 +120,34 @@ export function CatalogProfileEditor({ scope, products }: CatalogProfileEditorPr
   }
   function comboControls(doc: Extract<ProfileDocument,{kind:"combo"}>) {
     const sources = [catalog, ...Object.values(state?.children ?? {})].filter(v=>v!==null && v!==undefined);
+    const source = [...sources].reverse().find(s => s.items.some(i => i.id === childId));
+    const selected = source?.items.find(i => i.id === childId);
+    const selectedProfile = source?.profiles.find(p => p.item_id === childId && p.is_active);
+    const parsed = selectedProfile ? parseProfileDocument(selectedProfile.document) : null;
+    const seed: CatalogItemChoice | null = selected
+      ? selectedProfile && !parsed?.ok ? null : { id: selected.id, label: selected.name,
+        itemKind: parsed?.ok ? parsed.value.kind : "legacy", isAvailable: selected.is_available }
+      : choice?.key === scopeKey ? choice.value : null;
+    const pickerScope = { scopeKey, selectedBusinessId: scope.businessId, kind: "items" as const };
     return <div className="grid min-w-0 gap-4">
       <p className="text-sm leading-6">El combo tiene el precio fijo del producto padre. No se suman precios de hijos, adicionales ni recargos. Cada instancia del cliente se configurará de forma independiente, sin sustituir productos.</p>
       {ownGroups.length>0 && <p role="alert" className="text-sm">Un combo no puede tener grupos propios. Revisalos en el editor clásico antes de guardar.</p>}
-      {field("Producto fijo para agregar",<select className={input} aria-label="Producto fijo para agregar" value={childId} onChange={e=>setChildId(e.target.value)}><option value="">Elegir producto de esta tienda</option>{products.filter(p=>p.id!==scope.itemId && p.currency===root?.currency).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>)}
+      {props.pagedComponents ? <CatalogChoicePicker key={scopeKey}
+        scope={pickerScope} seed={seed}
+        selectedMetadata={selected && seed ? { scope: pickerScope, choice: seed } : null}
+        label="Producto fijo para agregar" onSelect={selectedChoice => {
+          const c = current();
+          if (!c || c.snapshot().status !== "idle" || c.snapshot().adding || !("itemKind" in selectedChoice)) return;
+          setChoice({ key: scopeKey, value: selectedChoice }); setChildId(selectedChoice.id);
+        }} /> : field("Producto fijo para agregar",<select className={input} aria-label="Producto fijo para agregar" value={childId} onChange={e=>setChildId(e.target.value)}><option value="">Elegir producto de esta tienda</option>{props.products.filter(p=>p.id!==scope.itemId && p.currency===root?.currency).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>)}
       <AsyncActionButton type="button" aria-label="Agregar producto fijo" className={secondary} pending={state?.adding ?? false} locked={locked || !childId} pendingLabel="Consultando producto…" onClick={async()=>{if(childId)await current()?.addComponent(childId);}}>Agregar producto fijo</AsyncActionButton>
       <p className="text-xs leading-5">Antes de agregarlo consultamos ese producto con tu sesión. No se permiten el propio producto, otra moneda ni combos anidados; agotado temporalmente no cambia la estructura.</p>
       {doc.components.map(component=>{
         const childGroups = new Map(), childOptions = new Map();
         for(const source of sources){for(const g of source.groups)if(g.item_id===component.itemId)childGroups.set(g.id,g);for(const o of source.options)childOptions.set(o.id,o);}
-        const childName = products.find(p=>p.id===component.itemId)?.name ?? component.itemId;
+        const childName = props.pagedComponents
+          ? [...sources].reverse().flatMap(s => s.items).find(i => i.id === component.itemId)?.name ?? component.itemId
+          : props.products.find(p=>p.id===component.itemId)?.name ?? component.itemId;
         return <section key={component.componentId} data-component-id={component.componentId} className="grid min-w-0 gap-3 rounded-xl border border-[var(--line)] p-3">
           <h4 className="break-words font-bold">Producto fijo: {childName}</h4>
           {field("Cantidad de este producto",<input className={input} type="number" min={1} step={1} aria-label={`Cantidad del componente ${component.componentId}`} value={Number.isFinite(component.quantity)?component.quantity:""} onChange={e=>componentChange(component.componentId,c=>({...c,quantity:integerText(e.target.value)}))} />)}

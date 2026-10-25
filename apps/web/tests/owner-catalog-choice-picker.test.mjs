@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { load, harness, nodes } from './owner-first-store-fixtures.mjs';
+import { load, harness, nodes, text } from './owner-first-store-fixtures.mjs';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { businessId, itemId, recordId } from './owner-resource-products-fixtures.mjs';
 const api = () => load('apps/web/app/owner/catalog/catalog-choice-state.ts');
 const scope = { scopeKey: 'owner:record', selectedBusinessId: businessId, kind: 'categories' };
@@ -92,6 +93,63 @@ test('items reject non-string kind metadata and groups certify exact parent cont
   });
   await groups.load(); assert.equal(groups.snapshot().status, 'unavailable');
   assert.match(requests[0], new RegExp(`itemId=${itemId}`));
+});
+
+test('mounted picker scoped selectedMetadata updates header row and old callbacks without resetting query page or reads', async () => {
+  const s = { ...scope, kind: 'items' }, stale = { ...row, label: 'Etiqueta anterior', itemKind: 'legacy', isAvailable: true };
+  const fresh = { ...stale, label: 'Etiqueta validada', itemKind: 'standard', isAvailable: false };
+  const rows = Array.from({ length: 25 }, (_, i) => ({ ...stale, id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}` }));
+  const calls = [], picks = []; let finish;
+  const props = { scope: s, seed: null, label: 'Producto', onSelect: choice => picks.push(choice), fetcher: async (url, options) => {
+    calls.push({ url, options });
+    const p = new URL(url, 'https://qwerty.invalid').searchParams;
+    if (calls.length === 3) return new Promise(resolve => { finish = resolve; });
+    return response(dto(s, p.get('q'), Number(p.get('page')), p.get('page') === '0' ? rows : [stale], 26));
+  } };
+  const h = harness('catalog/catalog-choice-picker.tsx', props, {}, 'CatalogChoicePicker');
+  h.render(); let tree = h.render();
+  props.selectedMetadata = { scope: s, choice: fresh };
+  assert.match(text(h.render()), /Sin seleccionar/); assert.equal(calls.length, 0);
+  props.selectedMetadata = null;
+  nodes(tree).find(n => n.type === 'input').props.onChange({ target: { value: 'match' } }); tree = h.render();
+  nodes(tree).find(n => n.type === 'button' && n.props.children === 'Buscar opciones').props.onClick(); await h.tick(); tree = h.render();
+  nodes(tree).find(n => n.type === 'button' && n.props.children === 'Siguiente').props.onClick(); await h.tick(); tree = h.render();
+  const oldRow = nodes(tree).find(n => n.props?.['aria-pressed'] === false); oldRow.props.onClick(); tree = h.render();
+  assert.equal(picks[0].id, stale.id); assert.match(text(tree), /Etiqueta anterior/);
+  props.selectedMetadata = { scope: s, choice: fresh }; tree = h.render();
+  assert.match(text(tree), /Etiqueta validada/); assert.doesNotMatch(text(tree), /Etiqueta anterior/);
+  assert.equal(nodes(tree).find(n => n.props?.['aria-pressed'] === true).props.children, fresh.label);
+  assert.equal(nodes(tree).find(n => n.type === 'input').props.value, 'match');
+  assert.match(renderToStaticMarkup(tree), /Página 2/); assert.equal(calls.length, 2); assert.equal(picks.length, 1);
+  oldRow.props.onClick(); assert.deepEqual(picks[1], fresh); // Same-scope old closure uses current metadata.
+  props.selectedMetadata = { scope: { ...s, scopeKey: 'foreign-record' }, choice: fresh };
+  assert.match(text(h.render()), /Etiqueta anterior/);
+  props.selectedMetadata = { scope: s, choice: { ...fresh, id: itemId } };
+  assert.match(text(h.render()), /Etiqueta anterior/); // Cannot select or relabel another ID.
+  props.selectedMetadata = { scope: s, choice: fresh }; tree = h.render();
+  nodes(tree).find(n => n.type === 'button' && n.props.children === 'Buscar opciones').props.onClick(); tree = h.render();
+  assert.match(text(tree), /Consultando opciones/);
+  props.selectedMetadata = { scope: s, choice: { ...fresh, label: 'Validada durante lectura' } }; tree = h.render();
+  assert.match(text(tree), /Validada durante lectura/); assert.match(text(tree), /Consultando opciones/);
+  assert.equal(calls.length, 3); assert.equal(picks.length, 2);
+  finish(response(dto(s, 'match', 0, rows, 26))); await h.tick(); tree = h.render();
+  assert.match(text(tree), /Validada durante lectura/);
+  const otherRows = nodes(tree).filter(n => n.props?.['aria-pressed'] !== undefined);
+  assert.equal(otherRows.length, 25); assert.ok(otherRows.every(n => n.props['aria-pressed'] === false && n.props.children === stale.label));
+  assert.equal(nodes(tree).find(n => n.type === 'input').props.value, 'match');
+  props.scope = { ...s, selectedBusinessId: itemId, scopeKey: 'new-actor-record' }; h.render(); oldRow.props.onClick();
+  assert.match(text(h.render()), /Sin seleccionar/); assert.equal(picks.length, 2); assert.equal(calls.length, 3); h.unmount();
+});
+
+test('mounted picker without override keeps later selected page metadata above initial or replacement seed', async () => {
+  const picks = [], props = { scope, seed: { ...row, label: 'Semilla anterior' }, label: 'Categoría',
+    onSelect: value => picks.push(value), fetcher: async () => response(dto(scope, '', 0, [{ ...row, label: 'Página posterior' }])) };
+  const h = harness('catalog/catalog-choice-picker.tsx', props, {}, 'CatalogChoicePicker'); h.render();
+  nodes(h.render()).find(n => n.type === 'button').props.onClick(); await h.tick();
+  nodes(h.render()).find(n => n.props?.['aria-pressed'] === true).props.onClick();
+  props.seed = { ...row, label: 'Otra semilla antigua' };
+  const tree = h.render(); assert.match(text(tree), /Página posterior/); assert.doesNotMatch(text(tree), /semilla/i);
+  assert.equal(picks[0].label, 'Página posterior'); h.unmount();
 });
 
 test('picker has no nested forms/named search or accidental Enter submit, and GET retries only', async () => {

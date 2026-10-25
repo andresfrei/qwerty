@@ -19,6 +19,7 @@ export function products(options = {}) {
       CatalogScopedForm: props => { editors.push(props); return React.createElement('form', { 'aria-label': props.title }, props.children); },
     },
     './photo-editor-client': { PhotoEditor: props => { editors.push({ photo: props }); return React.createElement('p', null, 'photo-editor'); } },
+    './catalog-profile-editor-client': { CatalogProfileEditor: props => { editors.push({ profile: props }); return React.createElement('p', null, 'profile-editor'); } },
   };
   function page(mode) { return load(`apps/web/app/owner/catalog/items/${mode === 'detail' ? '[itemId]/' : mode === 'new' ? 'new/' : ''}page.tsx`, mocks).default; }
   return { sdk, frames, editors, failures, page, markup: renderToStaticMarkup,

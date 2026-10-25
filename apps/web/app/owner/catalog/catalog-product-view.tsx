@@ -6,6 +6,7 @@ import { catalogHref } from "./catalog-navigation";
 import { CatalogInspectionLink, CatalogLink } from "./catalog-form-navigation";
 import { CatalogFormFrame } from "./catalog-form-scope";
 import { PhotoEditor } from "./photo-editor-client";
+import { CatalogProfileEditor } from "./catalog-profile-editor-client";
 
 type Ready = Extract<CatalogItemPage, { kind: "ready" }>;
 const card = "grid min-w-0 gap-4 rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6";
@@ -53,6 +54,8 @@ export function CatalogProductView({ result, readKey }: { result: Ready; readKey
           <div className={card}><CatalogProductSummary item={data.record} /></div>
           <CatalogProductForm scopeKey={JSON.stringify([page.accountId, page.businessId, readKey, data.record.id])}
             businessId={owner.business.id} category={data.record.category} item={data.record} />
+          <CatalogProfileEditor key={`${owner.account.id}:${owner.business.id}:${data.record.id}`}
+            scope={{ accountId: owner.account.id, businessId: owner.business.id, itemId: data.record.id }} pagedComponents />
           <div className={card}><h2 className="text-lg font-extrabold">Foto del producto</h2>
             <PhotoEditor key={`${owner.business.id}:${data.record.id}`} businessId={owner.business.id}
               itemId={data.record.id} itemName={data.record.name} photoPath={data.record.photo_path} photoVersion={String(data.record.photo_version)} />
