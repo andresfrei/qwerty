@@ -1,13 +1,13 @@
 # Public configurations — T5 connected source handoff
 
-**T5 reopened for independent B1 correction; limited recheck pending.** The public
-reader, cart, picker and checkout are connected, but the prior SOURCE verdict was
-blocked by canonical v1 response/recovery binding. This is a correction candidate,
-not independent acceptance or activation.
-Do not activate profiles based on these tests. T1/T3 contracts remain in
-[catalog-configurations.md](catalog-configurations.md) and
-[configured-checkout.md](configured-checkout.md); T4 owner catalogs/drafts are not
-public DTOs. SQL, browser/CSS, independent review and remote consent remain T6/T7.
+**Connected source; B1 independently closed.** The original verifier's limited
+23-case recheck passed after canonical v1 binding was corrected. The separate
+actual-React/current-CSS probe passed 59 checks with 14 screenshots and no JS errors.
+The database rollout and 113 synthetic SQL assertions are recorded in
+[catalog-configurations-sql.md](catalog-configurations-sql.md). These are bounded
+proofs, not full Next hydration, real-account UI/Auth or two-session acceptance.
+T1/T3 contracts remain in [catalog-configurations.md](catalog-configurations.md)
+and [configured-checkout.md](configured-checkout.md); owner drafts are not public DTOs.
 
 ## Public reader contract
 
@@ -95,8 +95,8 @@ old HEAD; no v1 markup branch or receipt authority was rewritten.
 
 The three small v2 branches are inline to preserve the existing test harness and
 avoid expanding the authorized fixture surface. A shared TSX component is optional
-future cleanup, not a reason to omit any consumer. Actual CSS/browser proof remains
-pending; source classes alone do not certify mobile layout.
+future cleanup, not a reason to omit any consumer. The separate React/CSS probe
+covered 390px and 1440px; it did not exercise full Next SSR/hydration or real Auth.
 
 ## Connected page and component contracts
 
@@ -199,10 +199,10 @@ unknown, correction, confirmed, unavailable and storage_error.
   still match the submitted snapshot. An intervening v3 edit cannot be overwritten
   merely because an old v1 key remained unchanged. Old keys are not deleted.
 
-T5 remains reopened until the original independent verifier rechecks B1 for S1/S8.
-S2–S6 retain the earlier bounded verdict, not a new retest claim. S7 review/commits
-remain parent-owned. T6 presentation and T7 concrete consent/SQL/Auth/RLS/race/remote
-proof remain pending.
+T5's B1 is closed for S1/S8 by the original independent verifier's 23/23 recheck;
+S2–S6 retain the earlier bounded verdict. T6 presentation and the specifically
+consented T7 SQL rollout are complete in their scopes. Real-account UI/Auth,
+clean-checkout behavior and two-session races are not certified by those results.
 
 ## Historical pre-B1 evidence
 
@@ -231,7 +231,7 @@ v2 display difference but is **not** pre-implementation RED evidence. Do not pre
 that UI lifecycle gap as strict-TDD compliance. Initial type/lint errors were fixed
 in one focused batch; those historical checks preceded the independent B1 finding.
 
-## B1 bounded correction candidate
+## B1 bounded correction and independent closure
 
 The controller previously validated v1 but froze cart order. Real
 `normalizePickupIntent`/`quotePickupOrder`/`presentPickupOrder` return canonical line
@@ -252,4 +252,5 @@ pick order, accepted-but-lost response, old raw payload recovery without a catal
 matching cleanup and newer-key preservation. RED observed all three new cases as
 unknown instead of confirmed. Final limited evidence and exact independent recheck
 command are recorded in `.pi/catalog-configurations/public/correction/handoff.md`.
-Do not treat a local correction pass as independent SOURCE approval.
+The original independent verifier subsequently ran only that limited command:
+23/23 passed and B1 closed. The local correction pass alone was not its approval.

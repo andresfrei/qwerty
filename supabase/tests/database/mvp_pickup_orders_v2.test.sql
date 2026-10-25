@@ -18,9 +18,9 @@ GRANT SELECT ON po_fixture TO anon, authenticated, service_role;
 CREATE TEMP TABLE po_state(key text PRIMARY KEY, value jsonb);
 GRANT SELECT, INSERT, UPDATE ON po_state TO authenticated, service_role;
 INSERT INTO auth.users(id,aud,role,email,email_confirmed_at,is_anonymous,raw_app_meta_data,raw_user_meta_data)
-SELECT owner,'authenticated','authenticated',owner::text || '@fixture.invalid',now(),false,'{}','{}' FROM po_fixture
-UNION ALL SELECT buyer,'authenticated','authenticated',NULL,NULL,true,'{}','{}' FROM po_fixture
-UNION ALL SELECT stranger,'authenticated','authenticated',stranger::text || '@fixture.invalid',now(),false,'{}','{}' FROM po_fixture;
+SELECT owner,'authenticated','authenticated',owner::text || '@fixture.invalid',now(),false,'{}'::jsonb,'{}'::jsonb FROM po_fixture
+UNION ALL SELECT buyer,'authenticated','authenticated',NULL,NULL,true,'{}'::jsonb,'{}'::jsonb FROM po_fixture
+UNION ALL SELECT stranger,'authenticated','authenticated',stranger::text || '@fixture.invalid',now(),false,'{}'::jsonb,'{}'::jsonb FROM po_fixture;
 INSERT INTO public.businesses(id,owner_id,name)
 SELECT business,owner,'Isolated pickup fixture' FROM po_fixture
 UNION ALL SELECT other_business,stranger,'Other isolated pickup fixture' FROM po_fixture;

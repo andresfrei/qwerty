@@ -1,10 +1,11 @@
 # Configured checkout — versioned backend contract
 
-**T3 source integration; not deployed or activated.** The HTTP/service/runtime
-now compose the existing adapter and pure engine, with dual-version history and
-client decoding. This does not prove SQL execution, RLS, concurrent database
-behavior or deployed capabilities. Owner/public configuration UI remains T4/T5;
-independent review remains T6. Do not activate profiles from this source evidence.
+**Backend source connected; database capability `(2, 1)` verified.** The
+HTTP/service/runtime compose the adapter and pure engine with dual-version history
+and client decoding. Independent source review and bounded presentation passed;
+[SQL rollout evidence](catalog-configurations-sql.md) records 113 synthetic
+single-session assertions. This is not a hosted application deployment, full
+Next hydration, real-account UI/Auth or two-session concurrency certification.
 
 ## Capability contract shared with T4/T5
 
@@ -219,7 +220,8 @@ this presenter. GET recovery, known-ID reads and the owner queue dispatch using 
 stored intent version; no current catalog lookup or repricing occurs. Existing
 receipt/queue DTO consumers can still read the common line summary fields. T5 must
 use the v2 discriminator and render components explicitly, not flatten them into a
-legacy selection array. This work does not mount that UI.
+legacy selection array. The connected T5 consumers are documented in
+[public configurations](public-catalog-configurations.md).
 
 `configured-order-presenter.ts` validates stored envelope/contact/currency/total,
 intent identity, multiplication, line/profile/selection bindings, group/pick
@@ -251,4 +253,6 @@ client tests cover commercial prices, fences, failure recovery, private projecti
 and malformed snapshots. The scratch old-HEAD/new public-v1 differential compares
 status/body/headers/cookies and durable counters; the intentional extra SDK effect
 is one read-only capability RPC for an absent attempt. No network, database,
-SQL/RLS/race execution or activation proof is claimed.
+SQL/RLS/race execution or activation proof is claimed by those fake-fetch tests.
+The separately authorized real SQL verification has its distinct scope in the
+[SQL rollout guide](catalog-configurations-sql.md).

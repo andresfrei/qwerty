@@ -1,11 +1,13 @@
 # Owner catalog configurations — T4 source integration
 
-**SOURCE only; owner controller, controls and mounting are integrated.** The
-selected Catalog includes a per-product editor backed by the session-role CAS
-API. No schema is applied and no configuration is activated by this work. T1, T2 and T3 contracts remain authoritative:
-[catalog domain](catalog-configurations.md), [SQL](catalog-configurations-sql.md),
-[backend](configured-checkout.md). Actual SQL/Auth/RLS/race/browser proof remains
-T6/T7; these tests use synthetic in-memory sessions and records only.
+**Owner controller, controls and mounting are integrated.** The selected Catalog
+includes a per-product editor backed by the session-role CAS API. The separately
+consented SQL rollout passed 71 configuration/CAS/RLS assertions plus 42 order
+assertions; bounded actual-React/current-CSS presentation passed 59 checks.
+T1/T2/T3 contracts remain authoritative: [domain](catalog-configurations.md),
+[SQL evidence and limits](catalog-configurations-sql.md), [backend](configured-checkout.md).
+HTTP/controller tests still use in-memory sessions; real-account UI/Auth and
+two-session database concurrency remain unverified.
 
 ## HTTP contract
 
@@ -208,16 +210,16 @@ money text and other dirty controls. Saved/unknown/conflict remain frozen until
 explicit safe adoption; unknown absent/unchanged observations do not unlock.
 
 Cream/ink/lime tokens, min-width-safe grids, labeled native controls and responsive
-single-column/sm-two-column matrix cards preserve existing patterns. This is source
-layout evidence only, not actual desktop/390px CSS/browser acceptance. The classic
-preview is explicitly labeled as classic, not the price of an active new profile.
+single-column/sm-two-column matrix cards preserve existing patterns. A separate
+actual-React/current-CSS probe covered 390px/1440px; it is not full Next hydration
+or real-account acceptance. The classic preview remains explicitly classic,
+not the price of an active new profile.
 
 ## Integration and remaining proof
 
-T4 controller+controls+mounting SOURCE integration is complete. T5 still owns the
-public configurator, independent customer instances and cart UI; it must consume
-T1/T3 selection/order contracts, not owner drafts or API private catalog data.
-T6 still requires independent security/concurrency/integration review and actual
-browser/CSS evidence. T7 requires concrete consent and real SQL/Auth/RLS/race proof
-before activation. No fixture execution, schema application, hosted records,
-provider calls or public configurator activation is claimed by these source tests.
+T4 and the separate T5 public configurator/cart are connected. Public consumers
+use T1/T3 selection/order contracts, never owner drafts/private API catalog data.
+T6 independent source/B1 review and bounded React/CSS evidence are complete;
+T7 applied the exact consented migration and passed both rollback-only SQL files.
+The source tests do not themselves establish those separate results. Real-account
+UI/Auth, clean-checkout operation and two-session schedules remain outside proof.

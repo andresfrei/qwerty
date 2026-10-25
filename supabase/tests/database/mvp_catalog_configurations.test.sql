@@ -20,9 +20,9 @@ CREATE TEMP TABLE cc_fixture AS SELECT
   gen_random_uuid() AS component;
 GRANT SELECT ON cc_fixture TO anon, authenticated, service_role;
 INSERT INTO auth.users(id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-SELECT owner, 'authenticated', 'authenticated', owner::text || '@fixture.invalid', now(), '{}', '{}' FROM cc_fixture
-UNION ALL SELECT stranger, 'authenticated', 'authenticated', stranger::text || '@fixture.invalid', now(), '{}', '{}' FROM cc_fixture
-UNION ALL SELECT unconfirmed, 'authenticated', 'authenticated', unconfirmed::text || '@fixture.invalid', NULL, '{}', '{}' FROM cc_fixture;
+SELECT owner, 'authenticated', 'authenticated', owner::text || '@fixture.invalid', now(), '{}'::jsonb, '{}'::jsonb FROM cc_fixture
+UNION ALL SELECT stranger, 'authenticated', 'authenticated', stranger::text || '@fixture.invalid', now(), '{}'::jsonb, '{}'::jsonb FROM cc_fixture
+UNION ALL SELECT unconfirmed, 'authenticated', 'authenticated', unconfirmed::text || '@fixture.invalid', NULL, '{}'::jsonb, '{}'::jsonb FROM cc_fixture;
 INSERT INTO public.businesses(id, owner_id, name)
 SELECT business, owner, 'Isolated configuration fixture' FROM cc_fixture
 UNION ALL SELECT other_business, stranger, 'Other isolated fixture' FROM cc_fixture;

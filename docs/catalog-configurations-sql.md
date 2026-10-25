@@ -1,9 +1,9 @@
-# Catalog configurations — T2 SQL source handoff
+# Catalog configurations — SQL contracts and verified rollout
 
-**Not activated.** This is source preparation for S1–S8 / T2, not an applied
-schema, deployed-metadata inspection, SQL behavior proof or completed feature.
+**Applied with bounded SQL verification.** The authorized migration was applied
+once on 2026-10-25; capability `(2, 1)` and **71 + 42 SQL assertions** were verified.
+This does not certify real-account UI acceptance or two-session concurrency.
 T1's exact domain contract remains [catalog-configurations.md](catalog-configurations.md).
-T3–T5 integration and independent T6 SQL review precede any T7 application.
 
 ## Review boundary
 
@@ -27,6 +27,19 @@ Each behavior unit is below approximately 400 source lines. The complete atomic
 migration exceeds 400 lines intentionally: capability must never advertise a
 partial installation. No shared templates, audit history, revision heads,
 backfill, extension installation, data classification or item columns are added.
+
+## Observed application identity
+
+- Target: `https://jxebudqzcmxgdsegrrqw.supabase.co`.
+- Exact SQL SHA-256: `751b9d40a2b7dd074b486a5f1f68d4c159e673398db48be48f370c123f7f31fb`.
+- Native migration: `20261025023307_catalog_configurations`; the prepared source
+  filename above is retained. MCP assigns its own execution timestamp.
+- History contains the prior 12 migrations plus this one; the old business-ID
+  grant was not replayed. PostgreSQL is 17.6 / READ COMMITTED.
+- Published capability is exactly `[{"version":2,"schemaVersion":1}]`.
+
+Do not bulk-push or replay local SQL to reconcile native/source timestamps. Any
+history reconciliation or schema repair needs a separately reviewed operation.
 
 ## Stable RPC contracts for T3 / T4
 
@@ -272,11 +285,12 @@ strategy; the rollback-only single-connection files do not supply one.
 | Cross-business | A holds guard for fixture business A | Independent fixture B save/order | No shared tenant lock except documented hash collision; tenant isolation holds |
 
 Capture wait/commit/rollback outcomes and durable counters in a real two-session
-runner after explicit T7 consent. Single-session assertions cannot substitute.
+runner after separate, explicit concurrency-test consent. The completed T7
+single-session assertions cannot substitute.
 
-## Validation prepared and application gates
+## Observed SQL validation and remaining limits
 
-Prepared pgTAP files (not run):
+The two pgTAP files completed through the authenticated MCP SQL runner:
 
 - `supabase/tests/database/mvp_catalog_configurations.test.sql`: owner/nonowner,
   unconfirmed, direct writes, FK/membership, CAS/conflict counters, matrix/JSON
@@ -290,20 +304,33 @@ and all prerequisite schema objects. They create synthetic users/businesses and
 receipt metadata only inside BEGIN/ROLLBACK. A runner with SET ROLE and fixture
 insert authority is needed. They do not install extensions, contact Storage,
 read environment files, upload files, change real users or prove availability
-pricing (that is T1/T3). `pg_prove`/a consented database runner is future work.
+pricing (that is T1/T3). No CLI login, extension or runner installation was needed.
+
+The first original run aborted before assertions with SQLSTATE `42804`: untyped
+`'{}'` values in the fixture's UNION were inferred as text for JSONB Auth columns.
+After explicit fixture-only consent, twelve `::jsonb` casts were added across six
+synthetic seed rows. No assertions or production migration bytes changed. Each
+corrected file then ran once, returning exactly `1..71` and `1..42`, respectively,
+without failure diagnostics. Both complete scripts returned normally with their
+unconditional trailing `ROLLBACK`; no separate persisted-row-absence query ran.
+
+MCP retains only the final SELECT rowset. The installed pgTAP `finish()` includes
+failure diagnostics in that rowset; acceptance required the exact expected count
+and no additional diagnostic rows. Individual TAP lines were not retained. The
+initial failed run remains historical evidence, not a passing test or schema defect.
 
 `node --test apps/web/tests/catalog-configurations-sql.test.mjs` checks source
 structure and lexical delimiter balance, without Git/.pi/fixed historical IDs.
 It is **not a PostgreSQL parser, SQL execution or concurrency proof**. No installed
 offline PostgreSQL parser was found; no parser/dependency was installed.
 
-Before any future apply, independently verify target, migration ordering, PG
-support for builtin SHA-256, exact prerequisite composite key and columns,
-Auth/receipt constraints, invoker column privileges, RLS helper execution,
-existing service grants/BYPASSRLS, no inherited owner DELETE/metadata grants,
-transaction isolation and lock semantics. Present exact DDL/ACLs and target to
-the human. Do not replay old grant migrations or install extensions by inference.
-No deployed metadata inventory/application/fixtures/diagnostic SQL was authorized.
+The authorized target-bound metadata preflight passed 51 contract checks before
+application. It checked prerequisite keys/columns, Auth/receipt bindings, helper
+and role privileges, isolation, builtin SHA-256 and existing pgTAP. Those facts do
+not authorize another target, grant replay, extension installation or speculative
+repair. Real-account UI/Auth flows, full Next hydration and the two-session
+schedules above remain unverified. Source review and SQL assertions are not native
+review approval; receipt-driven review was off.
 
 Rollback/recovery: an application failure before COMMIT rolls back the entire
 migration. After a successful application, stop profile activation and fence new
