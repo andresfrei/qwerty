@@ -26,7 +26,9 @@ export async function CatalogProductPage({ search, view }: { search: CatalogSear
   }
   const { owner } = result;
   return <OwnerShell ownedBusinesses={owner.businesses} selectedBusiness={owner.business}
-    activeModule="catalog" account={owner.account} pagination={owner.pagination}>
+    activeModule="catalog" account={owner.account} pagination={owner.pagination}
+    catalogContext={{ view: { resource: result.request.resource, mode: result.request.mode, ...(result.request.id ? { id: result.request.id } : {}) },
+      query: { ...result.request.query, businessId: owner.business.id } }}>
     <CatalogProductView result={result} readKey={randomUUID()} />
   </OwnerShell>;
 }

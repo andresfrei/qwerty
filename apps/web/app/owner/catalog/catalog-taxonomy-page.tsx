@@ -51,8 +51,13 @@ export async function CatalogTaxonomyPage({ search, view }: { search: CatalogSea
   const owner = result.kind === "selected" ? result : result.owner;
   const optionItem = result.kind === "ready" && result.data.kind === "list" ? result.data.parents.item : undefined;
   if (choosingOption && request.ok && request.query.itemId && !optionItem) throw Error("missing_checked_option_item");
+  const catalogRequest = (choosing || choosingOption) && request.ok ? request
+    : result.kind === "ready" ? result.request : null;
+  if (!catalogRequest) throw Error("missing_catalog_request");
   return <OwnerShell ownedBusinesses={owner.businesses} selectedBusiness={owner.business}
-    activeModule="catalog" account={owner.account} pagination={owner.pagination}>
+    activeModule="catalog" account={owner.account} pagination={owner.pagination}
+    catalogContext={{ view: { resource: catalogRequest.resource, mode: catalogRequest.mode, ...(catalogRequest.id ? { id: catalogRequest.id } : {}) },
+      query: { ...catalogRequest.query, businessId: owner.business.id } }}>
     {choosingOption && request.ok
       ? <CatalogOptionCreationView context={{ kind: "option_creation_chooser", owner, request,
         item: optionItem ?? null }} readKey={randomUUID()} />

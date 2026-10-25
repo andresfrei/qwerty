@@ -3,7 +3,8 @@
 ## Delivery status
 
 The navigation/query and classic form foundations are accepted (T2–T4).
-The legacy catalog has not been cut over; no links to unfinished pages are advertised.
+The legacy Catalog entry now resolves fresh owner selection and redirects to the
+actual Products list. It no longer reads or mounts the all-record editor.
 T5 now has Products list/new/detail, paged category choices, category changes,
 GET filters and the selected record's advanced profile editor with paged component
 choices. Server-only taxonomy/Products readers and the bounded choices GET endpoint
@@ -11,8 +12,41 @@ exist. The first T6 slice adds Categories list/new/detail and singleton Catalog
 settings. A second partial T6 slice adds contextual Groups list/new/detail and
 its selected-product entry link. The final T6 source slice adds the Options
 directory/new/detail and chained parent choices. T6 source consumers are now
-implemented; root/store/menu cutover and mounted-flow verification remain T7 work.
+implemented. T7 source integration now mounts four real subsection links and
+preserves resource context through store-selector pagination. Independent review
+and mounted-flow verification remain T7 work.
 This guide does not certify a complete dashboard or real-account acceptance.
+
+## Entry and shared-shell integration (T7 source; UI proof pending)
+
+`GET /owner/catalog` retains the unchanged strict owner query contract: only
+businessId/storePage. A request-local SDK and fresh confirmed-owner dashboard
+selection precede a fixed temporary redirect to `/owner/catalog/items`, carrying
+the resolved business UUID and storePage. Invalid, absent, unconfirmed, foreign
+and unavailable contexts retain existing safe envelopes; no catalog table,
+capability RPC, full collection or editor is needed to redirect. The destination
+independently authorizes its own request. No layout authorizes private content.
+
+`OwnerShell` has optional `catalogContext: {view: CatalogView, query: CatalogQuery}`.
+Actual Products and taxonomy page adapters provide validated request context with
+the resolved businessId, including typed New-parent choosers. Only active Catalog
+with a matching selected business uses it. Other modules and callers without the
+prop retain their old markup/hrefs. The context is presentation, never authority.
+
+Four real sections use N1's per-resource `catalogSectionQuery` and fixed hrefs;
+Groups activate Products rather than exposing a global Groups menu. Business
+switch links use `catalogStoreHref`, clearing record/parents/filter/search/page
+and storePage (Groups → Products). Selector **pagination** instead uses
+`catalogHref` with the same view/record/New/query and changes only storePage.
+Global Home/Orders/Store, create-another-store and native logout are unchanged.
+N6 remains the sole owner of link guards, uncertain-outcome inspection and native
+saved GET/logout exemptions. No Operations/Cash/Kitchen/Delivery is advertised.
+
+The source integration tests use public page adapters and read-only synthetic SDK
+calls. The nonshipping differential compares previous-HEAD and current shell
+public renders, including extra optional context on Home/Orders/Store and default
+Catalog. Neither source tests nor a differential establish browser/Next/RLS proof.
+The presentation plan is explicitly NOT ready for execution; T7 is not complete.
 
 ## Route and query contracts
 
@@ -343,9 +377,9 @@ legacy/paged prop contract and controller limits.
 The scoped Products source consumers and selected-label correction are accepted
 as T5 source integration (spec L18). The original75/75 missed that consumer display
 assertion. This is not full Catalog or live acceptance. Root entry/shared
-store-switch integration and mounted-flow verification remain T7; these pages do
-not change OwnerShell's current root destinations. S1/S4 overall still require
-T7 root/store/menu integration and mounted-flow verification.
+store-switch integration are now implemented in T7 source; mounted-flow verification
+remains pending. S1/S4 overall still require
+independent T7 root/store/menu review and mounted-flow verification.
 
 ## Categories and Catalog settings UI (first T6 slice)
 
@@ -614,9 +648,9 @@ native default navigation consumes the candidate before a request failure, so a
 later unrelated exit warns again. There is no Navigation API requirement, timeout,
 logout fetch rewrite or permanent bypass. These are standard app native-flow
 contracts, not hostile CSP/sandbox/third-party-JS or suppressed-dialog guarantees.
-The unframed legacy Catalog root is hidden behind a read-only fallback when a
-shared intent is locked, including history/programmatic arrival. Its default
-editor/model remain unchanged; T7 still owns the legacy cutover.
+The legacy Catalog root now performs only the fresh owner read and fixed Products
+redirect. The destination retains the mandatory frame/inspection policy. The
+standalone legacy editor/model remain unchanged, but are not mounted by that root.
 
 The corrected T4 foundation was accepted at f2d4e230 after the targeted independent
 recheck recorded in spec L14. That is not full resource rendering or browser

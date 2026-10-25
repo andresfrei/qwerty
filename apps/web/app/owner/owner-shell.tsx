@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { catalogHref, catalogStoreHref, type CatalogQuery, type CatalogView } from "./catalog/catalog-navigation";
+import { CatalogSectionNav } from "./catalog/catalog-navigation-view";
 import { ownerHref, type OwnerBusiness } from "./owner-context";
 
 export type OwnerModule = "home" | "orders" | "catalog" | "store";
@@ -11,16 +13,21 @@ export type OwnerShellProps = {
   account: OwnerAccountContext;
   pagination: OwnerPagination;
   children?: ReactNode;
+  catalogContext?: { view: CatalogView; query: CatalogQuery };
 };
 const link = "block min-h-11 rounded-lg px-3 py-3 text-sm font-extrabold hover:bg-[var(--soft-lime)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)]";
 const modules: readonly [OwnerModule, string][] = [["home", "Inicio"], ["orders", "Pedidos"], ["catalog", "Catálogo"], ["store", "Tienda"]];
 
 /** Presentation only: the request's server data, never this list, authorizes selection. */
-export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pagination, children }: OwnerShellProps) {
+export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pagination, children, catalogContext }: OwnerShellProps) {
+  const catalog = activeModule === "catalog" && selectedBusiness && catalogContext
+    && catalogContext.query.businessId === selectedBusiness.id ? catalogContext : undefined;
   const currentHref = ownerHref(activeModule, selectedBusiness?.id);
   // ownerHref above validates selection before constructing this fixed local route.
   const createHref = selectedBusiness ? `/owner/stores/new?businessId=${encodeURIComponent(selectedBusiness.id.toLowerCase())}` : "/owner/stores/new";
-  const pageHref = (page: number) => `${currentHref}${currentHref.includes("?") ? "&" : "?"}storePage=${page}`;
+  const pageHref = (page: number) => catalog
+    ? catalogHref(catalog.view.resource, { ...catalog.query, storePage: page }, catalog.view)
+    : `${currentHref}${currentHref.includes("?") ? "&" : "?"}storePage=${page}`;
   return <div className="min-h-screen bg-[var(--cream)] text-[var(--ink)] lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
     <aside className="min-w-0 border-b border-[var(--line)] p-5 lg:min-h-screen lg:border-r lg:border-b-0 lg:p-6">
       <a href="/owner" className="text-2xl font-extrabold tracking-[-0.08em]">qwerty</a>
@@ -28,7 +35,7 @@ export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pa
         <summary className={`${link} cursor-pointer break-words`} aria-label={`Seleccionar tienda: ${selectedBusiness?.name ?? "Tus tiendas"}`}>{selectedBusiness?.name ?? "Tus tiendas"}</summary>
         <div className="max-h-80 overflow-y-auto border-t border-[var(--line)] p-2">
           <ul aria-label="Tus tiendas">{ownedBusinesses.map(business => <li key={business.id}>
-            <a className={link} href={ownerHref(activeModule, business.id)} aria-current={business.id === selectedBusiness?.id ? "true" : undefined}>
+            <a className={link} href={catalog ? catalogStoreHref(catalog.view.resource, business.id) : ownerHref(activeModule, business.id)} aria-current={business.id === selectedBusiness?.id ? "true" : undefined}>
               {business.name}{business.id === selectedBusiness?.id && <><span aria-hidden="true"> ✓</span><span className="sr-only"> Seleccionada</span></>}
             </a>
           </li>)}</ul>
@@ -48,6 +55,9 @@ export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pa
       )}</nav>
       <form action="/auth/logout" method="post" className="mt-6"><button className={`${link} w-full border border-[var(--line)] text-left`} type="submit">Cerrar sesión</button></form>
     </aside>
-    <main className="min-w-0 px-5 py-8 sm:px-8 lg:p-12"><div className="mx-auto max-w-4xl">{children}</div></main>
+    <main className="min-w-0 px-5 py-8 sm:px-8 lg:p-12"><div className="mx-auto max-w-4xl">
+      {catalog && <CatalogSectionNav section={catalog.view.resource === "groups" ? "items" : catalog.view.resource} query={catalog.query} />}
+      {children}
+    </div></main>
   </div>;
 }

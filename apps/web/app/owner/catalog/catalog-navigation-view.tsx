@@ -5,14 +5,14 @@ import {
 } from "./catalog-navigation";
 
 export function CatalogSectionNav({
-  section, businessId, storePage = 0,
-}: { section: CatalogSection; businessId?: string; storePage?: number }) {
+  section, businessId, storePage = 0, query,
+}: { section: CatalogSection; businessId?: string; storePage?: number; query?: CatalogQuery }) {
   return (
     <nav aria-label="Secciones de catálogo" className="mb-6 flex flex-wrap gap-2 border-b border-[var(--line)] pb-4">
       {CATALOG_SECTIONS.map(({ id, label }) => (
         <CatalogLink
           key={id}
-          href={catalogHref(id, { businessId, storePage })}
+          href={catalogHref(id, query ? catalogSectionQuery(id, query) : { businessId, storePage })}
           aria-current={id === section ? "page" : undefined}
           className={`min-h-11 rounded-lg px-3 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] ${id === section ? "bg-[var(--lime)]" : "bg-white hover:bg-[var(--soft-lime)]"}`}
         >
