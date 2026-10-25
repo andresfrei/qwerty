@@ -1,8 +1,8 @@
-# Public configurations — reader, cart3 and full-attempt codec available but unmounted
+# Public configurations — reader, cart and corrected durable controller available but unmounted
 
-SOURCE prefix only; reader, cart3 and full-attempt codec available but unmounted. No
-browser/CSS, remote activation or SQL/Auth/RLS/race proof. Independent SOURCE review was
-of final bytes, not this intermediate prefix.
+SOURCE prefix only; reader, cart and corrected durable controller available but
+unmounted. No browser/CSS, remote activation or SQL/Auth/RLS/race proof. Independent
+SOURCE review was of final bytes, not this intermediate prefix.
 
 ## Public reader contract
 
@@ -93,3 +93,67 @@ key. Parsing uses T3 normalizers, bounds the envelope to 6 MiB, rejects extra
 actor/scope fields and validates status/correction/snapshot binding. It preserves
 original intent rather than rewriting it from an accepted deduplicated quote.
 Old `readAttemptState` also exposes a valid new envelope's technical selectors.
+
+`configured-checkout.ts` exports `loadScopedCart`, `publicItemCatalog`,
+`cartLineSelection`, `inspectConfiguredCart`, and
+`createConfiguredCheckoutController(page,{storage,fetcher?,uuid?,onChange?})`.
+The controller exposes `snapshot`, `restore`, `editContact`, `setFile`, `quantity`,
+`replace`, `review`, `prepare`, `upload`, `confirm`, `recover`, `dispose`.
+
+Snapshot fields are `{phase,cart,contact,file,receiptId,attempt,reference,order,
+reading,message}`. Phases are loading, idle, preparing, ready, uploading, pending,
+unknown, correction, confirmed, unavailable and storage_error.
+
+- Restore finishes before writes. Full envelopes take precedence over old refs.
+  Scope/malformed envelope failures lock without replacement. A malformed current
+  cart does **not** prevent a valid frozen attempt's GET. Unknown/missing GETs
+  preserve the exact payload and durable bytes with zero storage writes or POSTs.
+- Current T1 selection/pricing plus T3 wire/resource validation precede session or
+  receipt effects. Pure preview validation uses unsent/unpersisted placeholder
+  selectors, not allocated request IDs. Mixed currency, malformed and duplicate
+  canonical variants reject before staging. Backend authority is unchanged.
+- `confirm` canonicalizes v1 and v2 through their existing T3 normalizers (not a
+  later quote), persists and reads back
+  the full pending envelope before the only POST, then synchronously locks it.
+  Concurrently changed durable intents and changed cart snapshots refuse dispatch.
+  V1 remains unversioned; its canonical ordering now matches server presentation.
+  The original classic component/helper path is unchanged; mixed legacy lines use
+  profile version zero.
+- Unknown/pending/saved states cannot edit, stage, allocate fresh IDs or resend.
+  `recover` only GETs the same request. For already-frozen raw v1 intent it derives
+  a separate canonical expected view using `normalizePickupIntent`, without
+  rewriting stored intent bytes or resending. V2 keeps the original frozen intent,
+  including duplicate halves/component versions. It never creates another session. Write generations and disposal reject
+  late POST results after a GET winner or context change.
+- Narrow known corrections retain cart, receipt and request. The UI requires an
+  explicit review/reprice and another explicit confirmation. A changed version or
+  old flat line on an active profile needs an explicit complete picker acceptance;
+  no implicit retagging. Updating the catalog is an explicit page reload retaining
+  the frozen reference. Rejection never auto-uploads/consumes another receipt.
+- Accepted v2 displays use stored names/groups/instances only. Cleanup writes an
+  empty scoped v3 tombstone only if the **currently preferred key and exact bytes**
+  still match the submitted snapshot. An intervening v3 edit cannot be overwritten
+  merely because an old v1 key remained unchanged. Old keys are not deleted.
+
+## B1 bounded correction candidate
+
+The controller previously validated v1 but froze cart order. Real
+`normalizePickupIntent`/`quotePickupOrder`/`presentPickupOrder` return canonical line
+order; the existing client binds lines by index. A reversed multi-line cart therefore
+wrote an order once but showed unknown after POST and recovery.
+
+The narrow fix reuses the existing normalizer for new v1 wire and a separate
+canonical expected binding view when recovering an old raw v1 envelope. It does not
+change the shared client, normalizer, presenter, DTO, cart format, pricing or v2
+normalization. Frozen intent bytes remain exact; normal confirmed-status metadata
+and only matching-snapshot cleanup retain their existing behavior. A newer preferred
+cart/key must survive. No retry, new UUID, upload or current catalog lookup follows
+recovery.
+
+Regression tests use actual controller callbacks and fake HTTP backed by the
+real three server functions, covering descending IDs, contact whitespace, group/
+pick order, accepted-but-lost response, old raw payload recovery without a catalog,
+matching cleanup and newer-key preservation. RED observed all three new cases as
+unknown instead of confirmed. Final limited evidence and exact independent recheck
+command are recorded in `.pi/catalog-configurations/public/correction/handoff.md`.
+Do not treat a local correction pass as independent SOURCE approval.
