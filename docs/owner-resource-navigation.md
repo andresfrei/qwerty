@@ -2,13 +2,12 @@
 
 ## Delivery status
 
-The navigation/query foundation is prepared first. Its section components are not
-yet mounted in the legacy catalog: no links to unfinished pages are advertised.
-Record routes and form integration remain subsequent work units. A server-only,
-injectable taxonomy/Products read slice and bounded choices GET endpoint now exist.
-T3's data foundation covers category/component/group selection; selector widgets,
-selector UI and mounted resource pages remain T5–T6 work; classic adapter
-corrections await independent recheck.
+The navigation/query and classic form foundations are accepted (T2–T4).
+The legacy catalog has not been cut over; no links to unfinished pages are advertised.
+T5 now has a bounded Products list/detail slice described below, not full Products
+completion. Server-only taxonomy/Products readers and the bounded choices GET
+endpoint exist. Creation, category/component selector UI, profile integration and
+taxonomy/settings resource pages remain T5–T6 work.
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -227,7 +226,44 @@ Use prior scoped detail/configuration readers for existing selections and final
 validation. Never automatically repeat writes after a choice fetch or claim a
 choice grants mutation authority. No React selector/page is mounted by T3.
 
-## Classic form foundation (T4 contracts; resource pages not mounted)
+## Products UI slice (partial T5)
+
+`/owner/catalog/items` and `/owner/catalog/items/[itemId]` are dynamic server pages.
+They await promised Next parameters, construct a request-local session SDK and
+call the frozen `loadCatalogItemPage`; no layout authorization or cached data is
+used. Only ready results render selected-business content. Redirect/empty owner
+states reuse `OwnerDashboardView`; invalid/missing/unavailable are explicit product
+failures, not empty lists. Record identity comes from the scoped detail reader;
+origin category/q/page only affect back navigation.
+
+`catalog-product-page.tsx` exports `CatalogProductPage({search,view})` as the server
+adapter. `catalog-product-view.tsx` exports `CatalogProductView({result,readKey})`
+(ready `CatalogItemPage` only) and `CatalogProductSummary({item})`. Each ready server
+request supplies an opaque random readKey. The view adds the resolved business to
+validated route context, preserving storePage/q/page/categoryId in record/back
+links. The list has GET search, certified totals and previous/next links; it mounts
+no classic/photo/profile controllers. No list page is used as a selector library.
+
+Detail mounts one `update_product` scoped form and one existing `PhotoEditor`, only
+inside the mandatory frame's editable slot. The read-only slot is summary-only.
+Update identity is the actual record ID; the hidden category is the freshly read
+record's actual category, never its origin filter. All existing fields/model/send
+and photo defaults are reused without controller or API changes. Prices are
+labeled base/reference, not a configured pizza's final price. The N6 adapter owns
+pending retention, rejection input preservation and saved/unknown locks.
+
+**Not delivered in this slice:** `/items/new`, explicit New navigation, changing
+category, a category filter picker, paginated choices UI/controller, any profile
+editor/component/hierarchy selector. The category filter can be supplied in the
+validated URL and is retained in search/back/paging; it is not presented as a
+complete choice list. Profile kind is displayed as metadata only. No fake advanced
+editor or unfinished creation link is rendered. Candidate follow-up surfaces are
+`items/new/page.tsx`, `catalog-choice-picker.ts[x]`, `catalog-product-*.tsx`,
+`catalog-profile-editor-client.tsx` and matching isolated Products/choice tests.
+Root entry/shared store-switch integration remains T7; these pages do not change
+OwnerShell's current root destinations. This partial does not complete S1/S4/T5.
+
+## Classic form foundation (T4 contracts)
 
 `catalog-form-lifecycle.ts` exports `createCatalogFormGate`, `CatalogFormGate`,
 `CatalogFormIdentity`, `CatalogFormBinding`, `CatalogFormSnapshot`,
@@ -357,9 +393,9 @@ The unframed legacy Catalog root is hidden behind a read-only fallback when a
 shared intent is locked, including history/programmatic arrival. Its default
 editor/model remain unchanged; T7 still owns the legacy cutover.
 
-This is a bounded correction candidate, NOT T4 completion, resource route rendering
-or browser acceptance; independent targeted recheck remains parent-owned.
-T5/T6 must supply fresh authorized data and obey the slots;
+The corrected T4 foundation was accepted at f2d4e230 after the targeted independent
+recheck recorded in spec L14. That is not full resource rendering or browser
+acceptance. T5/T6 must supply fresh authorized data and obey the slots;
 T7 must verify mounted navigation/hydration. Harness effect replay and static
 markup are not actual React StrictMode/browser proof. No authorization/business
 selection may exist only in a cached layout; pages/actions keep fresh checks.
