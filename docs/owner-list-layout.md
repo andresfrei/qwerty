@@ -3,7 +3,10 @@
 ## Current status
 
 The approved prototype targets **Products lists and their filter dialog only**.
-Dependencies are installed; the new layout is not yet integrated or accepted.
+The dependencies and Products layout are integrated. Source checks pass: 96 scoped
+cases, TypeScript and four-file lint. A bounded synthetic Chromium run passes 63
+checks at 1440/390. Independent S1–S4 integration review passes with no blockers.
+Native ASSESS remains unassessable with RDD off; this is not native approval.
 Auth, existing record-editing forms and saved/unknown operation lifecycles are not
 being migrated. Existing nested Catalog sidebar working changes are preserved.
 
@@ -26,7 +29,12 @@ Foundation public SSR tests:
 node --test apps/web/tests/owner-list-table.test.mjs
 ```
 
-These components are not yet mounted by the current Products page.
+The Products list mounts these components. `CatalogProductsTable` defines its
+render functions in the client subtree; the server passes serializable summaries,
+reference-price strings, validated record URLs and certified pagination metadata.
+Category/availability are secondary desktop columns and compact mobile sublines.
+`OwnerShell.contentWidth` defaults to `reading`; only the Products list adapter
+passes `wide`. New/detail/editing surfaces keep their prior width and widgets.
 
 ## Products filter toolbar (source prototype)
 
@@ -49,8 +57,31 @@ dialog without resetting its draft/href before navigation. Existing callers omit
 the callback; native/SPA destination validation and cancellation remain unchanged.
 The modal is client UI; ordinary SSR search/read links remain native where eligible.
 
-Actual RHF SSR checks are in `owner-product-list-toolbar.test.mjs`; full live
-interaction/responsive verification remains pending until feature integration.
+Actual RHF SSR checks are in `owner-product-list-toolbar.test.mjs`.
+
+## Verification and limits
+
+- Source: 96 scoped cases pass, including real-library SSR, strict read guards,
+  unchanged classic payloads and Products/New/detail integration; TypeScript/lint pass.
+- Meaningful RED→GREEN: two missing layout/table rules, two toolbar/modal rules,
+  one optional read-click forwarding rule and three list/width integration rules.
+- Synthetic Chromium: actual React/RHF/Table SSR→StrictMode hydration, desktop/mobile
+  toolbar/modal, paged category selection, draft Clear/Cancel/Escape/Apply, focus,
+  stale-scope fencing, no filter writes, Enter GET, locked GET veto, unknown SPA
+  inspection and saved native GET: 63 checks pass; no unexpected errors/requests.
+- Differential: eight default shared-shell and four New/detail public SSR outputs
+  are unchanged against the prior source/working sidebar baseline, including changed
+  search input. Classic/photo/profile leaves use identical adapters in both versions.
+
+The first browser run stopped after 27 partial desktop checks because its private
+synthetic save payload omitted required `sortOrder`. The corrected fixture passed
+an actual-gate payload preflight, then one explicitly renewed browser session.
+The invalid fixture run and preparation failures are retained; totals overlap.
+
+These are isolated synthetic fixtures, not live Next RSC/prefetch, Auth/RLS,
+real-account, concurrent-session, clean-checkout or real photo/profile mutation
+acceptance. No full build/unrelated full suite was run. Manual account QA remains
+human-owned. The existing MVP/proxy was not restarted; nothing is published.
 
 ## Dependencies
 

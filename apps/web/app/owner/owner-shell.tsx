@@ -14,13 +14,14 @@ export type OwnerShellProps = {
   account: OwnerAccountContext;
   pagination: OwnerPagination;
   children?: ReactNode;
+  contentWidth?: "reading" | "wide";
   catalogContext?: { view: CatalogView; query: CatalogQuery };
 };
 const link = "block min-h-11 rounded-lg px-3 py-3 text-sm font-extrabold hover:bg-[var(--soft-lime)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)]";
 const modules: readonly [OwnerModule, string][] = [["home", "Inicio"], ["orders", "Pedidos"], ["catalog", "Catálogo"], ["store", "Tienda"]];
 
 /** Presentation only: the request's server data, never this list, authorizes selection. */
-export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pagination, children, catalogContext }: OwnerShellProps) {
+export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pagination, children, catalogContext, contentWidth = "reading" }: OwnerShellProps) {
   const catalog = activeModule === "catalog" && selectedBusiness && catalogContext
     && catalogContext.query.businessId === selectedBusiness.id ? catalogContext : undefined;
   const currentHref = ownerHref(activeModule, selectedBusiness?.id);
@@ -56,7 +57,7 @@ export function OwnerShell({ ownedBusinesses, selectedBusiness, activeModule, pa
       )}</nav>
       <form action="/auth/logout" method="post" className="mt-6"><NativeAuthButton className={`${link} w-full border border-[var(--line)] text-left`} pendingLabel="Cerrando sesión…">Cerrar sesión</NativeAuthButton></form>
     </aside>
-    <main className="min-w-0 px-5 py-8 sm:px-8 lg:p-12"><div className="mx-auto max-w-4xl">
+    <main className="min-w-0 px-5 py-8 sm:px-8 lg:p-12"><div className={`mx-auto ${contentWidth === "wide" ? "max-w-none" : "max-w-4xl"}`}>
       {catalog && <CatalogSectionNav section={catalog.view.resource === "groups" ? "items" : catalog.view.resource} query={catalog.query} />}
       {children}
     </div></main>

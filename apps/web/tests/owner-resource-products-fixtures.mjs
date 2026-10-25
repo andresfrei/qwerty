@@ -5,8 +5,8 @@ import { fixture, businessId, itemId, recordId, product } from './owner-resource
 export { businessId, itemId, recordId };
 export function products(options = {}) {
   const sdk = fixture({ tables: { catalog_items: [product] }, ...options });
-  const frames = [], editors = [], failures = []; let clients = 0;
-  const passthrough = ({ children }) => children;
+  const frames = [], editors = [], failures = [], shells = []; let clients = 0;
+  const passthrough = props => { shells.push(props); return props.children; };
   const link = ({ href, children }) => React.createElement('a', { href }, children);
   const mocks = {
     'server-only': {},
@@ -22,7 +22,7 @@ export function products(options = {}) {
     './catalog-profile-editor-client': { CatalogProfileEditor: props => { editors.push({ profile: props }); return React.createElement('p', null, 'profile-editor'); } },
   };
   function page(mode) { return load(`apps/web/app/owner/catalog/items/${mode === 'detail' ? '[itemId]/' : mode === 'new' ? 'new/' : ''}page.tsx`, mocks).default; }
-  return { sdk, frames, editors, failures, page, markup: renderToStaticMarkup,
+  return { sdk, frames, editors, failures, shells, page, markup: renderToStaticMarkup,
     get clients() { return clients; },
     search: { businessId, storePage: '2', page: '0', q: 'Pizza', categoryId: recordId },
   };

@@ -3,7 +3,9 @@ import { CatalogProductForm } from "./catalog-product-form";
 import { CatalogProductFilters, CatalogProductReadLink } from "./catalog-product-filters";
 import type { CatalogItemPage, CatalogItemSummary } from "./catalog-item-page-data";
 import { catalogHref } from "./catalog-navigation";
-import { CatalogInspectionLink, CatalogLink } from "./catalog-form-navigation";
+import { CatalogInspectionLink } from "./catalog-form-navigation";
+import { ResourceListLayout } from "../../components/resource-list-layout";
+import { CatalogProductsTable } from "./catalog-products-table";
 import { CatalogFormFrame } from "./catalog-form-scope";
 import { PhotoEditor } from "./photo-editor-client";
 import { CatalogProfileEditor } from "./catalog-profile-editor-client";
@@ -28,25 +30,28 @@ export function CatalogProductView({ result, readKey }: { result: Ready; readKey
   const query = { ...request.query, businessId: owner.business.id };
   const listHref = catalogHref("items", query);
   const page = { accountId: owner.account.id, businessId: owner.business.id, readKey };
+  if (data.kind === "list") return <ResourceListLayout titleId="products-title" title="Productos" context={`Catálogo · ${owner.business.name}`}
+    toolbar={<CatalogProductFilters scopeKey={JSON.stringify([page.accountId, page.businessId, readKey, "list"])}
+      businessId={owner.business.id} query={query} category={data.parents.category ?? null} />}
+    footer={<div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <p>{data.pagination.total} productos · Página {data.pagination.page + 1}</p>
+      <nav aria-label="Páginas de productos" className="flex flex-wrap gap-4 font-extrabold underline">
+        {query.page > 0 && <CatalogProductReadLink href={catalogHref("items", { ...query, page: query.page - 1 })} businessId={owner.business.id}>Anterior</CatalogProductReadLink>}
+        {data.pagination.hasMore && <CatalogProductReadLink href={catalogHref("items", { ...query, page: query.page + 1 })} businessId={owner.business.id}>Siguiente</CatalogProductReadLink>}
+      </nav>
+    </div>}>
+    <p className="px-4 py-3 text-xs text-[var(--muted)] sm:px-5">El precio final depende de la configuración y selección; estos importes son de referencia.</p>
+    <CatalogProductsTable businessId={owner.business.id} total={data.pagination.total} page={data.pagination.page}
+      rows={data.rows.map(item => ({ id: item.id, name: item.name, categoryName: item.category.name,
+        referencePrice: formatMoney(item.price_minor, item.currency), available: item.is_available,
+        href: catalogHref("items", query, { mode: "detail", id: item.id }) }))} />
+  </ResourceListLayout>;
   return <section className="mx-auto mt-14 grid max-w-3xl gap-6" aria-labelledby="products-title">
     <header>
       <p className="text-xs font-extrabold uppercase tracking-wider text-[var(--olive)]">Catálogo · {owner.business.name}</p>
       <h1 id="products-title" className="mt-3 text-4xl font-[750] tracking-[-0.07em]">{data.kind === "detail" ? data.record.name : "Productos"}</h1>
     </header>
-    {data.kind === "list" ? <>
-      <CatalogLink href={catalogHref("items", query, { mode: "new" })} className="min-h-11 py-2 font-extrabold underline">Nuevo producto</CatalogLink>
-      <CatalogProductFilters scopeKey={JSON.stringify([page.accountId, page.businessId, readKey, "list"])}
-        businessId={owner.business.id} query={query} category={data.parents.category ?? null} />
-      <p className="text-sm">{data.pagination.total} productos · Página {data.pagination.page + 1}</p>
-      {data.rows.length ? <ul className="grid gap-4">{data.rows.map(item => <li key={item.id} className={card}>
-        <CatalogProductSummary item={item} />
-        <CatalogProductReadLink href={catalogHref("items", query, { mode: "detail", id: item.id })} businessId={owner.business.id}>Abrir producto</CatalogProductReadLink>
-      </li>)}</ul> : <p>No hay productos en esta página.</p>}
-      <nav aria-label="Páginas de productos" className="flex flex-wrap gap-4 font-extrabold underline">
-        {query.page > 0 && <CatalogProductReadLink href={catalogHref("items", { ...query, page: query.page - 1 })} businessId={owner.business.id}>Anterior</CatalogProductReadLink>}
-        {data.pagination.hasMore && <CatalogProductReadLink href={catalogHref("items", { ...query, page: query.page + 1 })} businessId={owner.business.id}>Siguiente</CatalogProductReadLink>}
-      </nav>
-    </> : data.kind === "detail" ? <>
+    {data.kind === "detail" ? <>
       <CatalogProductReadLink href={listHref} businessId={owner.business.id}>Volver a productos</CatalogProductReadLink>
       <CatalogProductReadLink href={catalogHref("groups", { businessId: page.businessId, storePage: query.storePage, itemId: data.record.id })} businessId={page.businessId}>Grupos del producto</CatalogProductReadLink>
       <CatalogInspectionLink href={listHref} businessId={owner.business.id}>Consultar catálogo</CatalogInspectionLink>
