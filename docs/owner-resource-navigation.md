@@ -226,6 +226,64 @@ Use prior scoped detail/configuration readers for existing selections and final
 validation. Never automatically repeat writes after a choice fetch or claim a
 choice grants mutation authority. No React selector/page is mounted by T3.
 
+## Classic form foundation (partial T4; not mounted)
+
+`catalog-form-lifecycle.ts` exports `createCatalogFormGate`, `CatalogFormGate`,
+`CatalogFormIdentity`, `CatalogFormBinding`, `CatalogFormSnapshot`,
+`CatalogFormSender`, `CatalogInspection`, and `catalogInspectionHref`.
+One gate instance must outlive **all** concurrently reachable classic controls;
+never instantiate it per form or per writable page. It is client memory, not auth.
+
+- `bind(identity)` returns an immutable `{key}`. Keep that binding stable for the
+  mounted form. Identity includes accountId, businessId, action, target
+  `{kind: record|parent|singleton, id}`, and lifecycle generation. Bindings coexist:
+  e.g. category rename and reorder share one gate, not one lock each.
+- `submit(binding, FormData)` validates through unchanged `catalogFormPayload`,
+  matches action/record/creation parent, then synchronously acquires the gate
+  before calling unchanged `sendOwnerMutation`. Default transport retains JSON
+  POST, same-origin credentials, no-store and redirect:error. There is no retry.
+- `getSnapshot()` returns stable immutable `{state, message, pendingKey?}`;
+  `subscribe(listener)` returns an unsubscribe callback. Pending/saved/unknown
+  block every submission. Explicit rejection returns idle without touching inputs.
+- `retire(binding)` invalidates callbacks when identity changes/unmounts. Retiring
+  a pending operation changes the gate to unknown, **not idle**. Late responses
+  cannot change the next form's fields, lock, message or navigation state.
+- `canNavigate()` is false while locked. Its sole exception takes
+  `{inspectionHref, businessId}` matching the outstanding operation. It neither
+  navigates nor clears state. `catalogInspectionHref(href, businessId)` returns
+  the original validated local Catalog list/detail/settings href or null. It
+  rejects foreign/missing business, external URLs, creation/actions, fragments,
+  unknown/duplicate query keys and path normalization tricks, using frozen N1.
+
+`catalog-form-view.tsx` exports `CatalogClassicForm` and
+`CatalogClassicFormProps`: identityKey, title, action, state, pending,
+ pendingLabel, onSubmit, children, optional save (default Guardar). Children must
+be fields, never forms. It keys the actual form so identity changes deliberately
+reset uncontrolled inputs; fieldset/button retain the classic presentation.
+`catalog-editor-client.tsx` additionally exports unchanged `Field` and `Available`
+primitives; default CatalogEditor behavior and optional business mode are intact.
+
+Example adapter contract: keep `binding = gate.bind(identity)` stable; pass
+`identityKey={binding.key}`, `state={snapshot.state}` and
+`pending={snapshot.pendingKey === binding.key}`. Its onSubmit must call
+`event.preventDefault()` then `gate.submit(binding, new FormData(event.currentTarget))`.
+Retire the old binding when identity changes; never reset the shared gate.
+For creations use business parent for categories, category parent for products,
+item parent for groups, group parent for options; settings/publication use the
+business singleton. Updated records use their actual category/item/group/option ID.
+
+**Not complete:** no React scope/provider, shared layout, browser interception,
+beforeunload warning, read-only destination rendering, or resource field bundles
+are wired here. The next T4 unit must preserve the gate across internal navigation
+(including history/programmatic paths), connect explicit GET inspection to a
+read-only view with no writable editors, and prove mounted lifecycle behavior.
+`canNavigate` is only a public policy contract, not an installed browser guard.
+Do not mount these foundations alone and claim unknown-outcome protection.
+No authorization/business selection may exist only in a cached Next layout;
+request pages/actions must continue fresh confirmed-owner checks.
+Classic locks are NOT durable across full reload/tabs/restart; a GET inspection
+never proves exactly-once creation. Profile CAS remains separately durable.
+
 ## Focused verification
 
 `node --test apps/web/tests/owner-catalog-navigation.test.mjs` exercises the public

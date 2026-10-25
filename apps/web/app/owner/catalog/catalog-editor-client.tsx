@@ -12,10 +12,10 @@ type Storefront = { slug: string; display_name: string; is_published: boolean };
 type Props = { accountId?: string; business?: OwnerBusiness; categories: Category[]; items: Item[]; groups: OptionGroup[]; options: Option[]; storefront: Storefront | null; surchargeMinor: number };
 const input = "mt-1 min-h-11 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
 const button = "min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 text-sm font-extrabold disabled:opacity-50";
-function Field({ name, label, value = "", numeric = false, money = false }: { name: string; label: string; value?: string | number; numeric?: boolean; money?: boolean }) {
+export function Field({ name, label, value = "", numeric = false, money = false }: { name: string; label: string; value?: string | number; numeric?: boolean; money?: boolean }) {
   return <label className="min-w-0 text-sm">{label}<input className={input} name={name} defaultValue={value} type={numeric ? "number" : "text"} min={numeric ? 0 : undefined} step={numeric ? 1 : undefined} inputMode={money ? "decimal" : undefined} required maxLength={numeric ? undefined : 500} /></label>;
 }
-function Available({ value = true }: { value?: boolean }) {
+export function Available({ value = true }: { value?: boolean }) {
   return <label className="text-sm">Disponibilidad<select className={input} name="isAvailable" defaultValue={String(value)}><option value="true">Disponible</option><option value="false">No disponible</option></select></label>;
 }
 const pendingLabels: Record<string, string> = {
