@@ -4,9 +4,9 @@
 
 The navigation/query and classic form foundations are accepted (T2–T4).
 The legacy catalog has not been cut over; no links to unfinished pages are advertised.
-T5 now has a bounded Products list/detail slice described below, not full Products
-completion. Server-only taxonomy/Products readers and the bounded choices GET
-endpoint exist. Creation, category/component selector UI, profile integration and
+T5 now has Products list/new/detail, paged category choices, category changes and
+GET filters, not full Products completion. Server-only taxonomy/Products readers
+and the bounded choices GET endpoint exist. Profile/component integration and
 taxonomy/settings resource pages remain T5–T6 work.
 This guide does not certify a complete dashboard or real-account acceptance.
 
@@ -228,7 +228,8 @@ choice grants mutation authority. No React selector/page is mounted by T3.
 
 ## Products UI slice (partial T5)
 
-`/owner/catalog/items` and `/owner/catalog/items/[itemId]` are dynamic server pages.
+`/owner/catalog/items`, `/owner/catalog/items/new` and
+`/owner/catalog/items/[itemId]` are dynamic server pages.
 They await promised Next parameters, construct a request-local session SDK and
 call the frozen `loadCatalogItemPage`; no layout authorization or cached data is
 used. Only ready results render selected-business content. Redirect/empty owner
@@ -246,20 +247,62 @@ no classic/photo/profile controllers. No list page is used as a selector library
 
 Detail mounts one `update_product` scoped form and one existing `PhotoEditor`, only
 inside the mandatory frame's editable slot. The read-only slot is summary-only.
-Update identity is the actual record ID; the hidden category is the freshly read
-record's actual category, never its origin filter. All existing fields/model/send
+Update identity is the actual record ID; the chosen category is seeded from the
+fresh record's actual category, never its origin filter. Picker changes update only
+the hidden category, retaining the same record form key and other inputs. Public
+form/filter consumers also include intrinsic business/record identity in their local
+keys, so reusing a caller scopeKey cannot retain another business's selection. All existing fields/model/send
 and photo defaults are reused without controller or API changes. Prices are
 labeled base/reference, not a configured pizza's final price. The N6 adapter owns
 pending retention, rejection input preservation and saved/unknown locks.
 
-**Not delivered in this slice:** `/items/new`, explicit New navigation, changing
-category, a category filter picker, paginated choices UI/controller, any profile
-editor/component/hierarchy selector. The category filter can be supplied in the
-validated URL and is retained in search/back/paging; it is not presented as a
-complete choice list. Profile kind is displayed as metadata only. No fake advanced
-editor or unfinished creation link is rendered. Candidate follow-up surfaces are
-`items/new/page.tsx`, `catalog-choice-picker.ts[x]`, `catalog-product-*.tsx`,
-`catalog-profile-editor-client.tsx` and matching isolated Products/choice tests.
+New navigation now targets the actual `/items/new` page. `CatalogProductForm`
+requires an explicit scoped category before mounting `create_product`; its parent
+identity equals the selected category payload. Changing creation category remounts
+the draft deliberately (with explanatory copy). Defaults match the legacy fields:
+price 0, currency ARS, available true, sortOrder 0. No created-ID lookup, photo or
+profile controller is introduced on New. Known saved uses the existing explicit
+validated list inspection GET/new-document contract, never an automatic write retry.
+New and detail mutating controls belong only to editable frame slots.
+
+`catalog-product-filters.tsx` exports `CatalogProductFilters({scopeKey,businessId,
+query,category})` and `CatalogProductReadLink({href,businessId,children})`. Filter
+application is explicit guarded GET-link navigation, not a native form escape;
+search/category changes reset page to zero and preserve business/storePage. Empty
+category IDs are omitted. Read links use normal CatalogLink while idle and scoped
+CatalogInspectionLink while locked: pending/unknown inspection stays SPA/RAM,
+known saved retains N6's validated native GET. The same links cover paging, detail
+opening and back navigation. Creation links remain ordinary guarded links.
+
+### Paged choice consumer API
+
+`catalog-choice-state.ts` exports `createCatalogChoiceController(scope,seed?,fetcher?,
+onChange?)`, `catalogChoiceScopeKey`, `CatalogChoiceScope`, `Choice`,
+`CatalogChoiceSnapshot` and `CatalogChoiceController`. Scope requires scopeKey,
+selectedBusinessId and kind categories|items|groups; groups additionally require
+itemId (forbidden for the other kinds). Include account/record/parent intent in
+scopeKey. The controller has snapshot(), reset(scope,seed?), load(q?,page?),
+select(id):boolean and dispose(). Seeds must come from fresh scoped detail/config
+metadata, not an unbounded list or guessed first result. Item choices retain
+explicit itemKind/isAvailable. reset/dispose and each read advance a generation;
+older query/scope responses cannot affect rows/selection. No abort-only authority.
+Exact DTO scope/kind/group parent/q/page/25-row count/flags/metadata are validated;
+malformed, truncated or failed reads show unavailable and retain valid selection.
+
+`CatalogChoicePicker({scope,seed?,label,onSelect,fetcher?})` uses that controller.
+Example: categories use `{scopeKey: accountId+recordId+readKey,
+selectedBusinessId: businessId, kind:"categories"}` plus `{id,label}` from detail.
+For profile components use kind items and trusted seeds `{id,label,itemKind,
+isAvailable}`; for groups supply itemId and fence parent changes in scopeKey.
+Manual search/page buttons issue only same-origin/no-store/redirect:error GETs.
+No automatic first-row selection, mutation field, nested form or search Enter
+submission. The consumer owns selected hidden fields; selections survive paging,
+search and safe GET retry even when absent from the current certified page.
+
+**Not delivered:** profile editor integration, component/hierarchy selectors or
+profile eligibility/CAS/pricing acceptance. Generic item/group choices are ready
+for that next unit, not a working profile UI or complete product library. Profile
+kind is metadata only; no fake advanced editor is mounted.
 Root entry/shared store-switch integration remains T7; these pages do not change
 OwnerShell's current root destinations. This partial does not complete S1/S4/T5.
 

@@ -13,18 +13,28 @@ export function products(options = {}) {
     '@/app/lib/supabase/server': { createClient: async () => { clients++; return sdk.client; } },
     '../owner-shell': { OwnerShell: passthrough },
     '../owner-dashboard-views': { OwnerDashboardView: ({ data }) => { failures.push(data); return React.createElement('p', null, data.kind); } },
-    './catalog-form-navigation': { CatalogLink: link, CatalogInspectionLink: link },
+    './catalog-form-navigation': { CatalogLink: link, CatalogInspectionLink: link, CatalogSessionContext: React.createContext(null) },
     './catalog-form-scope': {
       CatalogFormFrame: props => { frames.push(props); return options.readOnly ? props.readOnly : props.editable; },
       CatalogScopedForm: props => { editors.push(props); return React.createElement('form', { 'aria-label': props.title }, props.children); },
     },
     './photo-editor-client': { PhotoEditor: props => { editors.push({ photo: props }); return React.createElement('p', null, 'photo-editor'); } },
   };
-  function page(mode) { return load(`apps/web/app/owner/catalog/items/${mode === 'detail' ? '[itemId]/' : ''}page.tsx`, mocks).default; }
+  function page(mode) { return load(`apps/web/app/owner/catalog/items/${mode === 'detail' ? '[itemId]/' : mode === 'new' ? 'new/' : ''}page.tsx`, mocks).default; }
   return { sdk, frames, editors, failures, page, markup: renderToStaticMarkup,
     get clients() { return clients; },
     search: { businessId, storePage: '2', page: '0', q: 'Pizza', categoryId: recordId },
   };
+}
+export function productFormFields(form) {
+  const fields = new Map([['action', form.identity.action]]);
+  function collect(tree) {
+    for (const node of descendants(tree)) {
+      if (typeof node.type === 'function') collect(node.type(node.props));
+      else if (node.props.name) fields.set(node.props.name, String(node.props.value ?? node.props.defaultValue ?? ''));
+    }
+  }
+  collect(form.children); return fields;
 }
 export function descendants(tree) {
   if (Array.isArray(tree)) return tree.flatMap(descendants);

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as React from 'react';
-import { load } from './owner-first-store-fixtures.mjs';
-import { products, businessId, itemId, recordId, descendants } from './owner-resource-products-fixtures.mjs';
+import { load, harness } from './owner-first-store-fixtures.mjs';
+import { products, businessId, itemId, recordId, descendants, productFormFields } from './owner-resource-products-fixtures.mjs';
 
 test('public product pages await promises and authorize each request with a fresh SDK', async () => {
   const f = products();
@@ -26,7 +26,8 @@ test('list summaries open one item, preserve scoped origin and label reference p
   assert.match(html, new RegExp(`/owner/catalog/items/${itemId}\\?`));
   assert.match(html, /storePage=2/); assert.match(html, /categoryId=/); assert.match(html, /q=Pizza/);
   assert.match(html, /name="q"/); assert.match(html, /1 productos/);
-  assert.equal(f.editors.length, 0); assert.doesNotMatch(html, /photo-editor|\/items\/new/);
+  assert.equal(f.editors.length, 0); assert.doesNotMatch(html, /photo-editor/);
+  assert.match(html, /\/items\/new\?/);
 });
 
 test('detail identity ignores origin category/search/page and mounts only its classic/photo editors', async () => {
@@ -146,4 +147,98 @@ test('actual N6 frame selects summary before mounting product editors on locked 
   settle({ kind: 'unknown' }); await sending;
   assert.doesNotMatch(f.markup(React.createElement(CatalogFormFrame, props)), /<form|photo-editor/);
   assert.equal(f.editors.length, 0);
+});
+
+test('new route requires explicit category before mounting parent-identity form and preserves back context', async () => {
+  const empty = products();
+  const html = empty.markup(await empty.page('new')({ searchParams: Promise.resolve({ businessId, storePage: '2', q: 'Pizza', page: '3' }) }));
+  assert.equal(empty.editors.length, 0); assert.match(html, /Elegí una categoría/);
+  assert.match(html, /storePage=2/); assert.match(html, /page=3/); assert.match(html, /q=Pizza/);
+  const seeded = products();
+  seeded.markup(await seeded.page('new')({ searchParams: Promise.resolve(seeded.search) }));
+  const form = seeded.editors.find(e => e.identity);
+  assert.deepEqual(form.identity, { action: 'create_product', target: { kind: 'parent', id: recordId } });
+  assert.equal(seeded.editors.filter(e => e.photo).length, 0);
+  assert.equal(descendants(form.children).find(n => n.props?.name === 'categoryId').props.value, recordId);
+  const fields = productFormFields(form); fields.set('name', 'Nuevo');
+  const { catalogFormPayload } = load('apps/web/app/owner/catalog/catalog-editor.ts');
+  assert.deepEqual(catalogFormPayload(fields), { action: 'create_product', categoryId: recordId,
+    name: 'Nuevo', description: '', priceMinor: 0, currency: 'ARS', isAvailable: true, sortOrder: 0 });
+  const calls = [];
+  const { createCatalogFormSession } = load('apps/web/app/owner/catalog/catalog-form-session.ts');
+  const session = createCatalogFormSession((payload, business) => new Promise(resolve => calls.push({ payload, business, resolve })));
+  const mounted = session.mount(seeded.frames[0].page, form.identity);
+  const pending = mounted.submit(fields); await mounted.submit(fields);
+  assert.equal(calls.length, 1); assert.equal(calls[0].business, businessId);
+  assert.equal(calls[0].payload.categoryId, form.identity.target.id);
+  calls[0].resolve({ kind: 'unknown' }); await pending; await mounted.submit(fields);
+  assert.equal(calls.length, 1); assert.equal(session.snapshot().state, 'unknown');
+  for (const categoryId of ['bad', '99999999-9999-4999-8999-999999999999']) {
+    const f = products(); f.markup(await f.page('new')({ searchParams: Promise.resolve({ businessId, categoryId }) }));
+    assert.equal(f.editors.length, 0); assert.equal(f.frames.length, 0);
+  }
+  const ro = products({ readOnly: true });
+  assert.doesNotMatch(ro.markup(await ro.page('new')({ searchParams: Promise.resolve(ro.search) })), /<input|<form|Buscar opciones/);
+});
+
+test('creation parent changes deliberately remount draft; update category keeps record identity and fields', () => {
+  const props = { scopeKey: 'owner:business:request', businessId, category: null };
+  const h = harness('catalog/catalog-product-form.tsx', props, {
+    './catalog-form-scope': { CatalogScopedForm: function CatalogScopedForm() {} },
+  }, 'CatalogProductForm');
+  let tree = h.render();
+  const picker = () => descendants(tree).find(n => n.type?.name === 'CatalogChoicePicker');
+  const form = () => descendants(tree).find(n => n.type?.name === 'CatalogScopedForm');
+  assert.equal(form(), undefined);
+  picker().props.onSelect({ id: recordId, label: 'Carta' }); tree = h.render();
+  assert.equal(form().props.identity.target.id, recordId); const oldKey = form().key;
+  picker().props.onSelect({ id: itemId, label: 'Otra' }); tree = h.render();
+  assert.notEqual(form().key, oldKey); assert.equal(form().props.identity.target.id, itemId);
+  const f = products(); props.item = { ...f.sdk.source.catalog_items[0], category: { id: recordId, name: 'Real' } };
+  props.category = { id: recordId, name: 'Real' }; props.scopeKey = 'owner:record:request'; tree = h.render();
+  const recordKey = form().key, nameField = descendants(form().props.children).find(n => n.props?.name === 'name');
+  picker().props.onSelect({ id: itemId, label: 'Nueva categoría' }); tree = h.render();
+  assert.equal(form().key, recordKey); assert.equal(form().props.identity.target.id, props.item.id);
+  assert.deepEqual(descendants(form().props.children).find(n => n.props?.name === 'name').props, nameField.props);
+  assert.equal(descendants(form().props.children).find(n => n.props?.name === 'categoryId').props.value, itemId);
+  props.businessId = recordId; tree = h.render();
+  assert.equal(descendants(form().props.children).find(n => n.props?.name === 'categoryId').props.value, recordId);
+  const stale = picker().props.onSelect;
+  props.scopeKey = 'different-owner:record'; props.category = { id: recordId, name: 'Scoped seed' }; tree = h.render();
+  stale({ id: itemId, label: 'Stale A' }); tree = h.render();
+  assert.equal(descendants(form().props.children).find(n => n.props?.name === 'categoryId').props.value, recordId);
+  h.unmount();
+});
+
+test('category filter GET links omit empty IDs, reset page and preserve owner/list context', () => {
+  const props = { scopeKey: 'owner:list', businessId, category: null,
+    query: { businessId, storePage: 2, page: 8, q: 'old' } };
+  const h = harness('catalog/catalog-product-filters.tsx', props, {
+    './catalog-form-navigation': { CatalogSessionContext: {}, CatalogLink() {}, CatalogInspectionLink() {} },
+  }, 'CatalogProductFilters');
+  let tree = h.render();
+  assert.equal(tree.type, 'fieldset');
+  const links = () => descendants(tree).filter(n => n.type?.name === 'CatalogProductReadLink');
+  assert.doesNotMatch(links()[0].props.href, /categoryId=/);
+  descendants(tree).find(n => n.type === 'input').props.onChange({ target: { value: ' nuevo ' } }); tree = h.render();
+  descendants(tree).find(n => n.type?.name === 'CatalogChoicePicker').props.onSelect({ id: recordId, label: 'Carta' }); tree = h.render();
+  const href = new URL(links()[0].props.href, 'https://qwerty.invalid');
+  assert.equal(href.searchParams.get('categoryId'), recordId); assert.equal(href.searchParams.get('q'), 'nuevo');
+  assert.equal(href.searchParams.get('page'), null); assert.equal(href.searchParams.get('storePage'), '2');
+  assert.equal(href.searchParams.get('businessId'), businessId);
+  assert.doesNotMatch(links()[1].props.href, /categoryId=/);
+  assert.equal(descendants(tree).filter(n => n.type === 'form').length, 0);
+  props.businessId = itemId; tree = h.render();
+  assert.doesNotMatch(links()[0].props.href, /categoryId=/); h.unmount();
+});
+
+test('read paging/detail/filter links use normal idle navigation and scoped inspection only when locked', () => {
+  const session = { locked: () => false, subscribe: () => () => {}, version: () => 0 };
+  const hooks = { ...React, useContext: () => session, useSyncExternalStore: (_s, get) => get() };
+  const { CatalogProductReadLink } = load('apps/web/app/owner/catalog/catalog-product-filters.tsx', { react: hooks });
+  const props = { href: `/owner/catalog/items/${itemId}?businessId=${businessId}`, businessId, children: 'Abrir' };
+  assert.equal(CatalogProductReadLink(props).type.name, 'CatalogLink');
+  session.locked = () => true;
+  const locked = CatalogProductReadLink(props);
+  assert.equal(locked.type.name, 'CatalogInspectionLink'); assert.equal(locked.props.businessId, businessId);
 });
