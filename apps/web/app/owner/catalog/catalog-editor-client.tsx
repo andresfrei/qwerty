@@ -4,11 +4,12 @@ import { ownerHref, type OwnerBusiness } from "../owner-context";
 import { AsyncActionButton } from "@/app/components/async-action-button";
 import type { Option, OptionGroup } from "../../lib/catalog-selection";
 import { catalogFormPayload, moneyText, sendOwnerMutation } from "./catalog-editor";
+import { CatalogProfileEditor } from "./catalog-profile-editor-client";
 
 type Category = { id: string; name: string; sort_order: number };
 type Item = { id: string; category_id: string; name: string; description: string | null; price_minor: number; currency: string; is_available: boolean; sort_order: number };
 type Storefront = { slug: string; display_name: string; is_published: boolean };
-type Props = { business?: OwnerBusiness; categories: Category[]; items: Item[]; groups: OptionGroup[]; options: Option[]; storefront: Storefront | null; surchargeMinor: number };
+type Props = { accountId?: string; business?: OwnerBusiness; categories: Category[]; items: Item[]; groups: OptionGroup[]; options: Option[]; storefront: Storefront | null; surchargeMinor: number };
 const input = "mt-1 min-h-11 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";
 const button = "min-h-11 rounded-lg bg-[var(--lime)] px-4 py-2 text-sm font-extrabold disabled:opacity-50";
 function Field({ name, label, value = "", numeric = false, money = false }: { name: string; label: string; value?: string | number; numeric?: boolean; money?: boolean }) {
@@ -26,7 +27,7 @@ const pendingLabels: Record<string, string> = {
 };
 const hidden = (name: string, value: string) => <input type="hidden" name={name} value={value} />;
 
-export default function CatalogEditor({ business, categories, items, groups, options, storefront, surchargeMinor }: Props) {
+export default function CatalogEditor({ accountId, business, categories, items, groups, options, storefront, surchargeMinor }: Props) {
   const generation = useRef<symbol | null>(null);
   useEffect(() => {
     generation.current = Symbol(business?.id);
@@ -82,7 +83,7 @@ export default function CatalogEditor({ business, categories, items, groups, opt
   return <section className="grid gap-4 rounded-2xl border border-[var(--line)] bg-white p-5" aria-labelledby="editor-title">
     <h2 id="editor-title" className="text-xl font-extrabold">Editar catálogo</h2>
     <noscript>Para guardar cambios necesitás JavaScript. Podés seguir consultando el catálogo de abajo.</noscript>
-    <p className="text-sm leading-6">Los cambios se guardan de a uno. Menor orden aparece primero. La vista de abajo conserva la descripción y el precio que verá el cliente.</p>
+    <p className="text-sm leading-6">Los cambios se guardan de a uno. Menor orden aparece primero. La vista de abajo muestra las reglas clásicas; para un perfil activo, consultá su configuración avanzada.</p>
     {message && <p role="status" className="text-sm font-bold">{message}</p>}
     {(state === "unknown" || state === "saved") && <a className="font-extrabold underline" href={ownerHref("catalog", business?.id)}>Actualizar catálogo (solo lectura)</a>}
     {storefront ? <>
@@ -102,6 +103,7 @@ export default function CatalogEditor({ business, categories, items, groups, opt
     <details><summary className="min-h-11 cursor-pointer py-2 font-extrabold">Productos y opciones ({items.length})</summary><div className="grid gap-4">
       {items.map(item => <section key={item.id} className="grid gap-3 border-t border-[var(--line)] pt-3">
         {form(`Editar: ${item.name}`, "update_product", productFields(item))}
+        {accountId && business && <CatalogProfileEditor key={`${accountId}:${business.id}:${item.id}`} scope={{ accountId, businessId: business.id, itemId: item.id }} products={items} />}
         <p className="text-sm">Para una docena: modo unidades, mínimo 12 y máximo 12. Para mitades: opciones distintas, máximo 2. Los precios y el recargo usan las reglas actuales del catálogo.</p>
         {form(`Nuevo grupo: ${item.name}`, "create_option_group", <>{hidden("itemId", item.id)}{groupFields()}</>, "Crear grupo")}
         {groups.filter(g => g.item_id === item.id).map(g => <div key={g.id} className="grid gap-3">

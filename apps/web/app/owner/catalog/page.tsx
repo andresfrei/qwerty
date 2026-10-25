@@ -100,7 +100,7 @@ export default async function OwnerCatalogPage({ searchParams }: { searchParams:
         ) : (
           <div className="mt-8 grid gap-6">
             <Link className="text-sm font-extrabold text-[var(--olive)] underline" href={`/owner/orders?businessId=${business.id}`} prefetch={false}>Consultar pedidos</Link>
-            <CatalogEditor key={contextKey} business={business} categories={categories} items={items} groups={optionGroups} options={options} storefront={storefront} surchargeMinor={surchargeMinor} />
+            <CatalogEditor key={contextKey} accountId={data.account.id} business={business} categories={categories} items={items} groups={optionGroups} options={options} storefront={storefront} surchargeMinor={surchargeMinor} />
             <div className={card}>
               <h2 className="text-lg font-[750] tracking-[-0.04em]">Tienda</h2>
               {storefront ? (
@@ -175,7 +175,7 @@ export default async function OwnerCatalogPage({ searchParams }: { searchParams:
                                         {!behavior.ok
                                           ? "Todavía no se puede armar con las opciones disponibles."
                                           : behavior.description
-                                            ? `Cliente: ${behavior.description} · ${formatMoney(behavior.unitPriceMinor ?? item.price_minor, item.currency)}`
+                                            ? `Vista clásica (sin perfil activo): ${behavior.description} · ${formatMoney(behavior.unitPriceMinor ?? item.price_minor, item.currency)}`
                                             : "Sin selección obligatoria."}
                                       </p>
                                     </li>

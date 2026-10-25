@@ -1,7 +1,11 @@
-# Owner configurations — HTTP API and durable controller
+# Owner catalog configurations — T4 source integration
 
-API and durable controller only, not mounted as human controls. No schema application,
-activation or SQL/Auth/RLS/race/browser proof.
+**SOURCE only; owner controller, controls and mounting are integrated.** The
+selected Catalog includes a per-product editor backed by the session-role CAS
+API. No schema is applied and no configuration is activated by this work. T1, T2 and T3 contracts remain authoritative:
+[catalog domain](catalog-configurations.md), [SQL](catalog-configurations-sql.md),
+[backend](configured-checkout.md). Actual SQL/Auth/RLS/race/browser proof remains
+T6/T7; these tests use synthetic in-memory sessions and records only.
 
 ## HTTP contract
 
@@ -158,3 +162,62 @@ Lifecycle:
    an old POST callback after GET-confirmation/adoption and a newer pending save.
    GET while editing cannot silently advance CAS over another writer; it requires
    explicit conflict/adoption. No automatic POST/retry follows any observation.
+
+## Component and mounting contract
+
+`catalog-profile-editor-client.tsx` exports `CatalogProfileEditor` and
+`CatalogProfileEditorProps`:
+
+```ts
+{scope:{accountId,businessId,itemId},
+ products:{id:string,name:string,currency:string}[]}
+```
+
+`products` comes from the existing selected-business owner page, not the scoped
+GET. The component is keyed by account+business+item inside each existing product
+edit section, outside all classic forms. The page passes its server-confirmed
+account ID and selected owned business. Only the advanced editor's controls lock;
+other products/classic actions are not disabled by an advanced operation.
+Opening the read button GETs current state; mounting restores tab intent first.
+
+Actual labeled controls, not a JSON textarea:
+
+- Explicit no-active-profile/classic, standard, pizza, dozen or combo choice; no
+  type inference from names. Deactivation preserves the document. Inactive unknown
+  JSON/version remains unchanged unless the owner explicitly authorizes replacement
+  and chooses a new type. Invalid active data renders unavailable, not standard.
+- Pizza chooses existing distinct 1–1 size and 1–2 flavor groups, exactly two groups
+  total. Every size×flavor pair has a full-price input and permitted checkbox,
+  including disabled pairs. Blank/invalid/fractional-cent prices cannot dispatch;
+  existing exact-cent parser is reused. Labels distinguish full prices from deltas
+  and explain floor-cent averaging plus the one store surcharge.
+- Dozen chooses the sole quantity 12–12 group. Any permitted mix uses the parent
+  price; options add no price. Wrong group bounds get classic-editor guidance,
+  never silent group mutation.
+- Combo chooses fixed existing same-store/same-currency products. Each candidate
+  is explicitly GET-read before addition; self/nested combo/foreign/mismatched
+  currency is refused. IDs remain stable while quantity/choices change. Each child
+  group can have a complete fixed selection and/or explicit allowlist. Absent
+  allowlist means no additional restriction; an empty list permits no picks.
+  Fixed choices must also be allowed. Parent price is fixed, without child billing;
+  customer instances will be independently configured by T5.
+
+Temporary agotado never disables structural editing. Pending/read/add operations
+reuse AsyncActionButton's text, spinner and immediate guard. Known rejection keeps
+money text and other dirty controls. Saved/unknown/conflict remain frozen until
+explicit safe adoption; unknown absent/unchanged observations do not unlock.
+
+Cream/ink/lime tokens, min-width-safe grids, labeled native controls and responsive
+single-column/sm-two-column matrix cards preserve existing patterns. This is source
+layout evidence only, not actual desktop/390px CSS/browser acceptance. The classic
+preview is explicitly labeled as classic, not the price of an active new profile.
+
+## Integration and remaining proof
+
+T4 controller+controls+mounting SOURCE integration is complete. T5 still owns the
+public configurator, independent customer instances and cart UI; it must consume
+T1/T3 selection/order contracts, not owner drafts or API private catalog data.
+T6 still requires independent security/concurrency/integration review and actual
+browser/CSS evidence. T7 requires concrete consent and real SQL/Auth/RLS/race proof
+before activation. No fixture execution, schema application, hosted records,
+provider calls or public configurator activation is claimed by these source tests.
