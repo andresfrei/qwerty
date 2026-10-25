@@ -7,7 +7,8 @@ yet mounted in the legacy catalog: no links to unfinished pages are advertised.
 Record routes and form integration remain subsequent work units. A server-only,
 injectable taxonomy/Products read slice and bounded choices GET endpoint now exist.
 T3's data foundation covers category/component/group selection; selector widgets,
-form integration and mounted resource pages remain T4–T6 work.
+selector UI and mounted resource pages remain T5–T6 work; classic adapter
+corrections await independent recheck.
 This guide does not certify a complete dashboard or real-account acceptance.
 
 ## Route and query contracts
@@ -226,7 +227,7 @@ Use prior scoped detail/configuration readers for existing selections and final
 validation. Never automatically repeat writes after a choice fetch or claim a
 choice grants mutation authority. No React selector/page is mounted by T3.
 
-## Classic form foundation (partial T4; not mounted)
+## Classic form foundation (T4 contracts; resource pages not mounted)
 
 `catalog-form-lifecycle.ts` exports `createCatalogFormGate`, `CatalogFormGate`,
 `CatalogFormIdentity`, `CatalogFormBinding`, `CatalogFormSnapshot`,
@@ -272,15 +273,96 @@ For creations use business parent for categories, category parent for products,
 item parent for groups, group parent for options; settings/publication use the
 business singleton. Updated records use their actual category/item/group/option ID.
 
-**Not complete:** no React scope/provider, shared layout, browser interception,
-beforeunload warning, read-only destination rendering, or resource field bundles
-are wired here. The next T4 unit must preserve the gate across internal navigation
-(including history/programmatic paths), connect explicit GET inspection to a
-read-only view with no writable editors, and prove mounted lifecycle behavior.
-`canNavigate` is only a public policy contract, not an installed browser guard.
-Do not mount these foundations alone and claim unknown-outcome protection.
-No authorization/business selection may exist only in a cached Next layout;
-request pages/actions must continue fresh confirmed-owner checks.
+### Mandatory T5/T6 adapter and slot contract
+
+Catalog's layout now installs `CatalogFormProvider` only: no SDK, identity or
+business resolver. `catalog-form-session.ts` exports `CatalogFormPage` (accountId,
+businessId, readKey), `CatalogFormIntent` (action,target), `CatalogMountedForm`,
+`CatalogFormSession`, `createCatalogFormSession(send?)`, and
+`catalogFormSessionFor(window, send?)`. The optional sender is a test seam; normal
+consumers never construct their own session. A Window-keyed RAM lifetime survives
+same-app layout unmount/re-entry. SSR creates a separate request-local session.
+
+`catalog-form-scope.tsx` exports `CatalogFormProvider`, `CatalogRouteBoundary`,
+`CatalogFormFrame`/`CatalogFormFrameProps`, and
+`CatalogScopedForm`/`CatalogScopedFormProps`. New writable pages MUST use:
+
+```tsx
+<CatalogInspectionLink href={scopedListHref} businessId={businessId}>
+  Consultar catálogo
+</CatalogInspectionLink>
+<CatalogFormFrame
+  page={{ accountId, businessId, readKey }}
+  readOnly={<RecordSummary record={record} />}
+  editable={<>
+    <CatalogScopedForm identity={{ action: "rename_category",
+      target: { kind: "record", id: record.id } }}
+      title="Nombre" pendingLabel="Guardando categoría…">
+      <input type="hidden" name="categoryId" value={record.id} />
+      <Field name="name" label="Nombre de la categoría" value={record.name} />
+    </CatalogScopedForm>
+    {/* Photo/profile controllers, when applicable, also belong ONLY here. */}
+  </>}
+/>
+```
+
+`readOnly` must contain no classic/photo/profile editors. The frame chooses the
+slot synchronously, before writable child mounts, on unknown/pending arrivals
+from history/programmatic navigation or another actor/business/read key. The
+origin form stays mounted (disabled) when its own operation becomes pending or
+unknown; input reset is deliberate on identity/read changes, not on lock updates.
+The adapter requires BOTH provider and frame; there is no per-page gate fallback.
+It owns binding generation, subscription via numeric revisions, cleanup/retirement,
+submit/preventDefault and stable form keys. StrictMode effect re-setup creates a
+new live binding, not reuse of a retired callback; pending retirement stays unknown.
+
+Each authorized ready-page GET supplies an opaque readKey, serialized unchanged
+to its frame for identity/lifecycle. It is NOT proof of post-save freshness: cached
+history and unseen prefetched pages can carry different, older request keys.
+**No same-document arrival ever rotates saved or unknown**, even with a new key.
+`arrive(page)` is observational only; the frame has no arrival/reset effect.
+`canLeaveSaved({inspectionHref,businessId})` is a read-only session predicate:
+only known saved plus a validated same-business Catalog GET qualifies.
+
+After known saved, `CatalogInspectionLink` renders a plain native anchor (not a
+Next Link handler), with neutral text “Consultar catálogo”. Its explicit GET
+starts a new document/server owner read and only then a new editing intent. It
+is not a retry or a promise that the new page remains forever read-only. While
+pending/unknown, the same component stays a same-tab SPA inspection link: the
+shared RAM lock survives and the destination selects only its read-only slot.
+No hard-navigation warning bypass is available for uncertain outcomes.
+
+`catalog-form-navigation.tsx` exports `CatalogLink`, `CatalogInspectionLink`,
+`CatalogSessionContext` (provider plumbing), and `installCatalogFormNavigation`.
+Section/breadcrumb links now use guarded Next Links with unchanged N1 hrefs.
+Inspection props are href/businessId/optional children (default Consultar catálogo);
+known saved always uses neutral text. Validation uses frozen N5/N1, no new query
+flag. Normal links cannot bypass a lock. Document capture also covers OwnerShell
+native links/store selection and GET forms; beforeunload warns. Installation is
+idempotent and lasts for the document, including programmatic Catalog exits.
+
+A one-shot exit candidate holds the actual trusted native triggering event, not
+a timer/bool lease. At beforeunload it is consumed and revalidated, including that
+SAME event's defaultPrevented after later listeners, current origin/destination,
+method/target and (for confirmed GET) saved state/business. Only the actual
+same-origin self-target POST /auth/logout, its fixed native auth-anchor equivalent,
+or explicit confirmed Catalog GET qualifies. Arbitrary POSTs, external targets,
+untrusted events, modifier/new-window/download clicks and submitter overrides
+receive no exemption. Canceled submissions cannot exempt a later exit; a standard
+native default navigation consumes the candidate before a request failure, so a
+later unrelated exit warns again. There is no Navigation API requirement, timeout,
+logout fetch rewrite or permanent bypass. These are standard app native-flow
+contracts, not hostile CSP/sandbox/third-party-JS or suppressed-dialog guarantees.
+The unframed legacy Catalog root is hidden behind a read-only fallback when a
+shared intent is locked, including history/programmatic arrival. Its default
+editor/model remain unchanged; T7 still owns the legacy cutover.
+
+This is a bounded correction candidate, NOT T4 completion, resource route rendering
+or browser acceptance; independent targeted recheck remains parent-owned.
+T5/T6 must supply fresh authorized data and obey the slots;
+T7 must verify mounted navigation/hydration. Harness effect replay and static
+markup are not actual React StrictMode/browser proof. No authorization/business
+selection may exist only in a cached layout; pages/actions keep fresh checks.
 Classic locks are NOT durable across full reload/tabs/restart; a GET inspection
 never proves exactly-once creation. Profile CAS remains separately durable.
 

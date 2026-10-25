@@ -1,3 +1,4 @@
+import { CatalogLink } from "./catalog-form-navigation";
 import {
   CATALOG_SECTIONS, catalogHref, catalogSectionQuery,
   type CatalogQuery, type CatalogSection,
@@ -9,14 +10,14 @@ export function CatalogSectionNav({
   return (
     <nav aria-label="Secciones de catálogo" className="mb-6 flex flex-wrap gap-2 border-b border-[var(--line)] pb-4">
       {CATALOG_SECTIONS.map(({ id, label }) => (
-        <a
+        <CatalogLink
           key={id}
           href={catalogHref(id, { businessId, storePage })}
           aria-current={id === section ? "page" : undefined}
           className={`min-h-11 rounded-lg px-3 py-3 text-sm font-extrabold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--olive)] ${id === section ? "bg-[var(--lime)]" : "bg-white hover:bg-[var(--soft-lime)]"}`}
         >
           {label}
-        </a>
+        </CatalogLink>
       ))}
     </nav>
   );
@@ -32,11 +33,11 @@ export function CatalogBreadcrumbs({
   return (
     <nav aria-label="Ruta de navegación" className="mb-4 text-sm text-[var(--muted)]">
       <ol className="flex flex-wrap items-center gap-2">
-        <li><a className="underline" href={catalogHref("items", scope)}>Catálogo</a></li>
+        <li><CatalogLink className="underline" href={catalogHref("items", scope)}>Catálogo</CatalogLink></li>
         <li aria-hidden="true">/</li>
         <li>
           {title ? (
-            <a className="underline" href={catalogHref(section, catalogSectionQuery(section, query))}>{label}</a>
+            <CatalogLink className="underline" href={catalogHref(section, catalogSectionQuery(section, query))}>{label}</CatalogLink>
           ) : <span aria-current="page">{label}</span>}
         </li>
         {title && <>
