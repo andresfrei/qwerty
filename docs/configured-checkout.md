@@ -1,8 +1,8 @@
-# Configured checkout — adapter and pure quotation
+# Configured checkout — quotation and immutable history
 
-SOURCE preparation only; not deployed or activated. This prefix has pure adapters and
-quotation only: no SDK wiring, HTTP v2, owner editor or public UI.
-SQL/Auth/RLS/races/browser remain unproved.
+SOURCE only. Pure quotation, stored v2 history dispatch and additive browser codec
+exist. New v2 POST/service/SDK finalization is not wired in this prefix. No UI or
+deployment claim.
 
 ## Capability contract shared with T4/T5
 
@@ -150,3 +150,19 @@ failures map to `amount_out_of_range`.
 This module performs no writes or authorization. The SQL fingerprint certifies
 **freshness, not price**. Historical attempt lookup must still precede catalog
 fetch/pricing; correction is not permission to retry a write automatically.
+
+`configured-order-presenter.ts` validates stored envelope/contact/currency/total,
+intent identity, multiplication, line/profile/selection bindings, group/pick
+snapshot bindings and component/instance/version identities. It projects explicit
+fresh data. The browser codec reuses its line validator, preserves v2 metadata and
+binds returned selections to the submitted intent. Identical halves are the only
+allowed intent-to-quote collapse (pizza, or a leaf within a combo). Without a
+current catalog, historical validation cannot independently authenticate an
+arbitrary renamed child or recompute commercial prices: immutable trusted stored
+quotes remain the authority, not an invented cryptographic price certificate.
+
+`ConfiguredOrderIntent` is the wire v2 intent (no slug), `AcceptedOrderIntent`
+unions it with the unchanged legacy `OrderIntent`, and `ConfiguredOrder` adds
+`version:2` plus typed rich lines to the existing common DTO. `requestOrder` sends
+version 2 only for that intent and retains one-request/no-retry behavior. Existing
+technical attempt references and read-only unknown recovery remain unchanged.

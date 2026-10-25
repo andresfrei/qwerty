@@ -20,6 +20,9 @@ export function request(method = 'POST', query = '?slug=pizza', body = input, he
 export function fixture(overrides = {}) {
   const calls = [], rows = [], counters = { writes: 0, receiptChanges: 0 };
   const repository = {
+    async configurationCapability() { return 'legacy_only'; },
+    async configuredCatalog() { throw Error('Not available in legacy schema'); },
+    async finalizeConfigured() { throw Error('Not available in legacy schema'); },
     async resolveBusiness(slug) { calls.push(['business', slug]); return business; },
     async findAttempt(a, b, r) { calls.push(['attempt', a, b, r]); return rows.find(x => x.actor_id === a && x.business_id === b && x.request_id === r) ?? null; },
     async catalog(b, slug) { calls.push(['catalog', b, slug]); return structuredClone(catalog); },

@@ -1,3 +1,5 @@
+// @ts-expect-error Native Node tests require explicit TypeScript extensions.
+import { presentConfiguredPickupOrder } from "./configured-order-presenter.ts";
 import { isDeepStrictEqual } from "node:util";
 import type { OrderCatalog, PickupIntent, PickupQuote } from "./order-quote";
 // @ts-expect-error Native Node tests require explicit TypeScript extensions.
@@ -20,6 +22,7 @@ const rejected = (code: string, status = 409): OrderResult => ({ status, body: {
 
 // Never serialize provider rows/JSON snapshots wholesale, even on privileged replay.
 export function presentPickupOrder(value: unknown) {
+  if (object(value) && object(value.intent) && value.intent.version === 2) return presentConfiguredPickupOrder(value);
   if (!object(value) || !uuid(value.id) || !uuid(value.actor_id) || !uuid(value.business_id) || !uuid(value.request_id) || !uuid(value.receipt_id)
     || !object(value.intent) || typeof value.intent.slug !== "string" || value.intent.version !== 1
     || !object(value.quote) || value.quote.version !== 1 || value.quote.businessId !== value.business_id
