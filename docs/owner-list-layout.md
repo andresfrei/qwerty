@@ -2,7 +2,11 @@
 
 ## Current status
 
-The approved prototype targets **Products lists and their filter dialog only**.
+This guide describes the original **Products list and filter-dialog prototype**.
+The presentation is now also reused by Categories and Varieties/options; see
+[Catalog taxonomy listing pattern](owner-taxonomy-list-layout.md) for their
+resource-specific controls and verification. Groups/settings/New/detail remain
+outside that listing rollout.
 The dependencies and Products layout are integrated. Initial prototype evidence:
 96 scoped cases, TypeScript/four-file lint, and 63 synthetic Chromium checks at
 1440/390. The subsequent available-height correction passes 41 relevant source

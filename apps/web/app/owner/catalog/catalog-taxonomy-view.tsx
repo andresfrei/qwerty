@@ -3,12 +3,12 @@ import { moneyText } from "./catalog-editor";
 import { CatalogFormFrame, CatalogScopedForm } from "./catalog-form-scope";
 import { CatalogInspectionLink, CatalogLink } from "./catalog-form-navigation";
 import { catalogHref } from "./catalog-navigation";
-import type { CatalogTaxonomyPage, CategorySummary, GroupSummary, OptionSummary, OptionDirectorySummary, ItemParent } from "./catalog-page-data";
+import type { CatalogTaxonomyPage, CategorySummary, GroupSummary, OptionSummary, ItemParent } from "./catalog-page-data";
 import { CatalogProductReadLink } from "./catalog-product-filters";
-import { CatalogCategorySearch, CatalogOptionFilters } from "./catalog-taxonomy-controls";
+import { CatalogCategorySearch } from "./catalog-taxonomy-controls";
 import { CatalogGroupForm, CatalogOptionForm } from "./catalog-option-forms";
 import type { CatalogGroupCreationContext, CatalogOptionCreationContext } from "./catalog-taxonomy-page";
-import { CatalogCategoryListView } from "./catalog-taxonomy-list";
+import { CatalogCategoryListView, CatalogOptionListView } from "./catalog-taxonomy-list";
 
 type Ready = Extract<CatalogTaxonomyPage, { kind: "ready" }>;
 const card = "grid min-w-0 gap-4 rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6";
@@ -96,34 +96,17 @@ export function CatalogOptionCreationView({ context, readKey }: { context: Catal
 
 function CatalogOptionView({ result, readKey }: { result: Ready; readKey: string }) {
   const { owner, request, data } = result;
-  if (data.kind === "settings") throw Error("invalid_option_page");
+  if (data.kind === "settings" || data.kind === "list") throw Error("invalid_option_page");
   const page = { accountId: owner.account.id, businessId: owner.business.id, readKey };
   const query = { ...request.query, businessId: page.businessId };
   const item = data.parents.item ?? null, group = data.parents.group ?? null;
   const record = data.kind === "detail" ? data.record as OptionSummary : undefined;
-  if (data.kind !== "list" && (!item || !group)) throw Error("missing_checked_option_parents");
+  if (!item || !group) throw Error("missing_checked_option_parents");
   const listHref = catalogHref("options", query);
   return <section className="mx-auto mt-14 grid max-w-3xl gap-6" aria-labelledby="options-title">
     <header><p className="text-xs font-extrabold uppercase tracking-wider text-[var(--olive)]">Catálogo · {owner.business.name}</p>
       <h1 id="options-title" className="mt-3 text-4xl font-[750] tracking-[-0.07em]">{record?.name ?? (data.kind === "new" ? "Nueva opción" : "Variedades y opciones")}</h1>
       <p className="mt-3 text-sm">Opciones propias de cada producto y grupo; no son una biblioteca compartida.</p></header>
-    {data.kind === "list" ? <>
-      <CatalogLink href={catalogHref("options", query, { mode: "new" })} className="min-h-11 py-2 font-extrabold underline">Nueva opción</CatalogLink>
-      <CatalogFormFrame page={page} readOnly={<p>Filtros en modo solo lectura.</p>}
-        editable={<CatalogOptionFilters scopeKey={JSON.stringify(page)} businessId={page.businessId} item={item} group={group} query={query} />} />
-      <p className="text-sm">{data.pagination.total} opciones · Página {data.pagination.page + 1}</p>
-      {data.rows.length ? <ul className="grid gap-4">{data.rows.map(row => {
-        const option = row as OptionDirectorySummary;
-        return <li key={option.id} className={card}>
-          <CatalogOptionSummary option={option} item={option.item} group={option.group} />
-          <CatalogProductReadLink href={catalogHref("options", query, { mode: "detail", id: option.id })} businessId={page.businessId}>Abrir opción</CatalogProductReadLink>
-        </li>;
-      })}</ul> : <p>No hay opciones en esta página.</p>}
-      <nav aria-label="Páginas de opciones" className="flex flex-wrap gap-4 font-extrabold underline">
-        {query.page > 0 && <CatalogProductReadLink href={catalogHref("options", { ...query, page: query.page - 1 })} businessId={page.businessId}>Anterior</CatalogProductReadLink>}
-        {data.pagination.hasMore && <CatalogProductReadLink href={catalogHref("options", { ...query, page: query.page + 1 })} businessId={page.businessId}>Siguiente</CatalogProductReadLink>}
-      </nav>
-    </> : <>
       <CatalogProductReadLink href={listHref} businessId={page.businessId}>Volver a opciones</CatalogProductReadLink>
       <CatalogInspectionLink href={listHref} businessId={page.businessId}>Consultar catálogo</CatalogInspectionLink>
       <CatalogFormFrame page={page}
@@ -132,7 +115,6 @@ function CatalogOptionView({ result, readKey }: { result: Ready; readKey: string
           {record && item && group && <div className={card}><CatalogOptionSummary option={record} item={item} group={group} /></div>}
           <CatalogOptionForm scopeKey={JSON.stringify(page)} businessId={page.businessId} item={item} group={group} option={record} query={query} />
         </>} />
-    </>}
   </section>;
 }
 
@@ -150,6 +132,7 @@ function SettingsSummary({ data }: { data: Extract<Ready["data"], { kind: "setti
 export function CatalogTaxonomyView({ result, readKey }: { result: Ready; readKey: string }) {
   const { owner, request, data } = result;
   if (request.resource === "categories" && data.kind === "list") return <CatalogCategoryListView result={result} readKey={readKey} />;
+  if (request.resource === "options" && data.kind === "list") return <CatalogOptionListView result={result} readKey={readKey} />;
   if (request.resource === "groups") return <CatalogGroupView result={result} readKey={readKey} />;
   if (request.resource === "options") return <CatalogOptionView result={result} readKey={readKey} />;
   if (request.resource !== "categories" && request.resource !== "settings") throw Error("unsupported_taxonomy_view");

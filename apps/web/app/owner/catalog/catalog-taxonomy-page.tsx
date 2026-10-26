@@ -56,7 +56,7 @@ export async function CatalogTaxonomyPage({ search, view }: { search: CatalogSea
   if (!catalogRequest) throw Error("missing_catalog_request");
   return <OwnerShell ownedBusinesses={owner.businesses} selectedBusiness={owner.business}
     activeModule="catalog" account={owner.account} pagination={owner.pagination}
-    contentWidth={catalogRequest.resource === "categories" && catalogRequest.mode === "list" && result.kind === "ready" && result.data.kind === "list" ? "wide" : undefined}
+    contentWidth={(catalogRequest.resource === "categories" || catalogRequest.resource === "options") && catalogRequest.mode === "list" && result.kind === "ready" && result.data.kind === "list" ? "wide" : undefined}
     catalogContext={{ view: { resource: catalogRequest.resource, mode: catalogRequest.mode, ...(catalogRequest.id ? { id: catalogRequest.id } : {}) },
       query: { ...catalogRequest.query, businessId: owner.business.id } }}>
     {choosingOption && request.ok
