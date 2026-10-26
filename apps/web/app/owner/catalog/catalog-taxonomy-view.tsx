@@ -8,6 +8,7 @@ import { CatalogProductReadLink } from "./catalog-product-filters";
 import { CatalogCategorySearch, CatalogOptionFilters } from "./catalog-taxonomy-controls";
 import { CatalogGroupForm, CatalogOptionForm } from "./catalog-option-forms";
 import type { CatalogGroupCreationContext, CatalogOptionCreationContext } from "./catalog-taxonomy-page";
+import { CatalogCategoryListView } from "./catalog-taxonomy-list";
 
 type Ready = Extract<CatalogTaxonomyPage, { kind: "ready" }>;
 const card = "grid min-w-0 gap-4 rounded-2xl border border-[var(--line)] bg-white p-5 sm:p-6";
@@ -148,6 +149,7 @@ function SettingsSummary({ data }: { data: Extract<Ready["data"], { kind: "setti
 /** Presentation dispatch only; the request-local server reader owns authorization. */
 export function CatalogTaxonomyView({ result, readKey }: { result: Ready; readKey: string }) {
   const { owner, request, data } = result;
+  if (request.resource === "categories" && data.kind === "list") return <CatalogCategoryListView result={result} readKey={readKey} />;
   if (request.resource === "groups") return <CatalogGroupView result={result} readKey={readKey} />;
   if (request.resource === "options") return <CatalogOptionView result={result} readKey={readKey} />;
   if (request.resource !== "categories" && request.resource !== "settings") throw Error("unsupported_taxonomy_view");
@@ -161,19 +163,7 @@ export function CatalogTaxonomyView({ result, readKey }: { result: Ready; readKe
       <p className="text-xs font-extrabold uppercase tracking-wider text-[var(--olive)]">Catálogo · {owner.business.name}</p>
       <h1 id="taxonomy-title" className="mt-3 text-4xl font-[750] tracking-[-0.07em]">{title}</h1>
     </header>
-    {data.kind === "list" ? <>
-      <CatalogLink href={catalogHref("categories", query, { mode: "new" })} className="min-h-11 py-2 font-extrabold underline">Nueva categoría</CatalogLink>
-      <CatalogCategorySearch scopeKey={JSON.stringify([page.accountId, page.businessId, readKey])} businessId={page.businessId} query={query} />
-      <p className="text-sm">{data.pagination.total} categorías · Página {data.pagination.page + 1}</p>
-      {data.rows.length ? <ul className="grid gap-4">{data.rows.map(category => <li key={category.id} className={card}>
-        <CatalogCategorySummary category={category} />
-        <CatalogProductReadLink href={catalogHref("categories", query, { mode: "detail", id: category.id })} businessId={page.businessId}>Abrir categoría</CatalogProductReadLink>
-      </li>)}</ul> : <p>No hay categorías en esta página.</p>}
-      <nav aria-label="Páginas de categorías" className="flex flex-wrap gap-4 font-extrabold underline">
-        {query.page > 0 && <CatalogProductReadLink href={catalogHref("categories", { ...query, page: query.page - 1 })} businessId={page.businessId}>Anterior</CatalogProductReadLink>}
-        {data.pagination.hasMore && <CatalogProductReadLink href={catalogHref("categories", { ...query, page: query.page + 1 })} businessId={page.businessId}>Siguiente</CatalogProductReadLink>}
-      </nav>
-    </> : <>
+    {data.kind !== "list" && <>
       {data.kind !== "settings" && <CatalogProductReadLink href={listHref} businessId={page.businessId}>Volver a categorías</CatalogProductReadLink>}
       <CatalogInspectionLink href={listHref} businessId={page.businessId}>Consultar catálogo</CatalogInspectionLink>
       <CatalogFormFrame page={page}
