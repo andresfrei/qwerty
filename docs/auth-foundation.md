@@ -37,3 +37,14 @@ Its [handler](../apps/web/app/auth/forgot-password/submit/handler.ts) uses a
 non-persistent client and neutral check-email responses for provider outcomes.
 [Existing tests](../apps/web/tests/forgot-password.test.ts) inject provider methods
 and assert rejected inputs do not dispatch.
+
+## Password update
+
+`/auth/update-password` posts to `/auth/update-password/submit`.
+The [handler](../apps/web/app/auth/update-password/submit/handler.ts) requires trusted
+ingress, matching passwords, fresh identity/claims and recovery proof before updating.
+Success follows global sign-out and a fixed login status redirect. Update/sign-out
+errors never claim success; a password update may precede a later sign-out failure.
+[Tests](../apps/web/tests/update-password.test.ts) use fake clients and mutation counters.
+Proof gates password update only, not global Owner access. The frozen Owner gateway
+independently requires fresh confirmed identity and ownership filtering.
