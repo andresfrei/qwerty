@@ -20,3 +20,12 @@ identity/session, tampering, expiry and cookie boundaries.
 trusted-origin/host checks, staged cookies and fixed destinations together.
 Retained [POST tests](../apps/web/tests/auth-post-boundary.test.ts) cover rejected
 ingress and disabled GET surfaces; they do not exercise provider-success login/signup.
+
+## Confirmation
+
+`/auth/confirm` delegates to the [handler](../apps/web/app/auth/confirm/handler.ts).
+Email confirmation targets `/owner`; recovery targets `/auth/update-password`;
+invalid/failed confirmation targets `/auth/error`, never a caller-selected URL.
+Recovery proof is issued only after OTP session, verified claims and fresh user agree.
+Failure discards staged OTP cookies. [Callback tests](../apps/web/tests/auth-confirm.test.ts)
+use injected clients and signing keys, not a live email/provider flow.
