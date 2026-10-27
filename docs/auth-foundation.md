@@ -48,3 +48,39 @@ errors never claim success; a password update may precede a later sign-out failu
 [Tests](../apps/web/tests/update-password.test.ts) use fake clients and mutation counters.
 Proof gates password update only, not global Owner access. The frozen Owner gateway
 independently requires fresh confirmed identity and ownership filtering.
+
+## Session edges
+
+`/auth/logout` is POST-only, checks fresh identity, signs out locally and returns to
+a fixed login status page. [Rejection tests](../apps/web/tests/logout-boundary.test.ts)
+do not exercise successful provider logout.
+[Proxy](../apps/web/proxy.ts) covers `/owner/:path*` and `/auth/confirm`, propagating
+staged refresh cookies/headers without granting authorization.
+[Proxy tests](../apps/web/tests/supabase-proxy.test.ts) cover response propagation and
+missing configuration. The server helper remains the existing SSR cookie adapter.
+
+## Configuration and privacy
+
+Preferred pair: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+Legacy fallback: `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Trusted site origin:
+`QWERTY_SITE_URL`; recovery signing key: `QWERTY_RECOVERY_SIGNING_KEY`.
+No configuration values or credentials are packaged or inspected.
+Existing no-store/referrer rules and native-form exceptions remain unchanged.
+Fixed destinations and neutral signup/reset outcomes preserve privacy intentions.
+These source checks are not a production security guarantee.
+
+## Verification and limits
+
+The 28 existing source/test additions total 2,894 lines and match their source snapshot
+byte-for-byte. Direct offline Node ran 53 Auth cases plus seven existing regressions:
+60 passed, zero failed/skipped/cancelled, zero guarded fetch attempts. Child application
+configuration was removed before tests; injected clients never contacted providers.
+Ordinary direct `tsc --noEmit --incremental false` passed. Biome checked 20 app files
+and proxy separately: both exit0, one existing unused `options` warning in proxy.
+Module-format warnings were retained. No product code was changed to silence warnings.
+Independent source verification found no candidate-caused severe blocker; it is not
+native review approval. Native assessment was unassessable before staging because
+untracked selection was required; no native START/receipt/approval was produced.
+Generated Next route/root-parameter declarations, production build, live email/account/
+provider flows, database operations, browser QA and deployment were not performed.
+The declaration imports are present; stale generated routes were not copied.
