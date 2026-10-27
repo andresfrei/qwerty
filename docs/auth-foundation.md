@@ -29,3 +29,11 @@ invalid/failed confirmation targets `/auth/error`, never a caller-selected URL.
 Recovery proof is issued only after OTP session, verified claims and fresh user agree.
 Failure discards staged OTP cookies. [Callback tests](../apps/web/tests/auth-confirm.test.ts)
 use injected clients and signing keys, not a live email/provider flow.
+
+## Recovery request
+
+`/auth/forgot-password` posts to `/auth/forgot-password/submit`.
+Its [handler](../apps/web/app/auth/forgot-password/submit/handler.ts) uses a
+non-persistent client and neutral check-email responses for provider outcomes.
+[Existing tests](../apps/web/tests/forgot-password.test.ts) inject provider methods
+and assert rejected inputs do not dispatch.
