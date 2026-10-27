@@ -12,3 +12,11 @@ user/session identity, expires after 15 minutes and uses an HttpOnly, SameSite=L
 cookie scoped to `/auth/update-password` (Secure on HTTPS).
 The retained [proof tests](../apps/web/tests/recovery-proof.test.ts) cover key,
 identity/session, tampering, expiry and cookie boundaries.
+
+## Login and signup
+
+`/auth/login` and `/auth/signup` render native forms posting to their `/submit` routes.
+[Shared POST handling](../apps/web/app/lib/supabase/auth-post.ts) keeps validation,
+trusted-origin/host checks, staged cookies and fixed destinations together.
+Retained [POST tests](../apps/web/tests/auth-post-boundary.test.ts) cover rejected
+ingress and disabled GET surfaces; they do not exercise provider-success login/signup.
