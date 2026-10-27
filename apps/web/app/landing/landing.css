@@ -1,0 +1,204 @@
+/* Every selector is scoped: the stylesheet must not affect Auth or Owner. */
+.qwerty-landing {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 40px;
+  color: var(--ink);
+}
+.qwerty-landing :is(h1, h2, p, figure) { margin: 0; }
+.qwerty-landing .landing-footer p { color: var(--muted); font-size: 11px; }
+.qwerty-landing .landing-hero-demo-heading span { font-size: 11px; }
+.qwerty-landing .landing-purpose-points span { margin-top: 12px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.qwerty-landing .landing-purpose-points strong, .qwerty-landing .landing-purpose-points span { display: block; }
+.qwerty-landing h2 { font-size: clamp(29px, 3vw, 43px); line-height: 1.15; letter-spacing: -.055em; font-weight: 750; }
+.qwerty-landing :is(a, summary):focus-visible {
+  outline: 2px solid var(--olive);
+  outline-offset: 5px;
+}
+.qwerty-landing a { color: inherit; text-decoration: none; }
+.qwerty-landing .landing-header {
+  min-height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.qwerty-landing .landing-brand { font-size: 28px; font-weight: 800; letter-spacing: -.08em; }
+.qwerty-landing .landing-development { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
+.qwerty-landing .landing-header nav { display: flex; align-items: center; gap: 28px; }
+.qwerty-landing .landing-header-link { font-size: 13px; font-weight: 650; }
+.qwerty-landing .landing-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-radius: 9px;
+  padding: 12px 22px;
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid var(--line);
+}
+.qwerty-landing .landing-entry { background: white; border-color: var(--olive); }
+.qwerty-landing .landing-primary { background: var(--lime); border-color: var(--lime); }
+.qwerty-landing .landing-button:hover { border-color: var(--olive); }
+.qwerty-landing .landing-story {
+  display: grid;
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+  column-gap: clamp(40px, 7vw, 100px);
+  padding-top: 88px;
+}
+.qwerty-landing .landing-hero { grid-column: 2; grid-row: 1; padding: 0 0 100px; }
+.qwerty-landing .landing-eyebrow { color: var(--olive); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.qwerty-landing h1 { margin-top: 28px; font-size: clamp(56px, 5.8vw, 84px); line-height: 1; letter-spacing: -.075em; font-weight: 800; }
+.qwerty-landing .landing-intro { margin-top: 28px; font-size: clamp(22px, 2.2vw, 29px); line-height: 1.35; letter-spacing: -.035em; font-weight: 650; }
+.qwerty-landing .landing-hero-copy { max-width: 420px; margin-top: 20px; color: var(--body-subtle); font-size: 16px; line-height: 1.7; }
+.qwerty-landing .landing-hero .landing-button { margin-top: 30px; }
+.qwerty-landing .landing-quiet { margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.qwerty-landing .landing-preview { grid-column: 1; grid-row: 1 / 3; min-width: 0; padding-top: 25px; }
+.qwerty-landing .landing-preview-sticky { position: sticky; top: 40px; }
+/* Receipt typography is local; the surrounding narrative stays Manrope. */
+.qwerty-landing :is(.landing-turn, .landing-hero-demo) {
+  position: relative;
+  margin-bottom: 8px;
+  overflow: visible;
+  background: white;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: 0 12px 28px rgb(29 29 27 / 9%), 0 2px 3px rgb(29 29 27 / 6%);
+}
+/* The tear extends only 7px below the paper, in reserved margin, never over data. */
+.qwerty-landing :is(.landing-turn, .landing-hero-demo)::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -7px;
+  height: 7px;
+  pointer-events: none;
+  background: linear-gradient(135deg, white 50%, transparent 50%) 0 0 / 12px 12px repeat-x;
+}
+.qwerty-landing .landing-preview .landing-turn { max-width: 460px; margin-inline: auto; }
+.qwerty-landing .landing-turn-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 18px 24px; border-bottom: 1px dashed var(--line); }
+.qwerty-landing .landing-turn-top strong { font-size: 19px; letter-spacing: .02em; }
+.qwerty-landing .landing-turn-top span { color: var(--ink); font-size: 11px; }
+.qwerty-landing .landing-turn .landing-eyebrow { color: var(--ink); }
+/* Keyed content restarts once per stage; content is visible even if animation fails. */
+.qwerty-landing .landing-turn-body { padding: 26px 24px; }
+@keyframes landing-stage-enter {
+  from { transform: translateY(10px); opacity: .65; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.qwerty-landing .landing-progress-track { height: 5px; margin-top: 22px; overflow: hidden; border-radius: 5px; background: var(--forest); }
+.qwerty-landing .landing-progress-fill { height: 100%; background: var(--lime); transform-origin: left; }
+.qwerty-landing .landing-order-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 24px; }
+.qwerty-landing .landing-order-heading h2 { font-size: 22px; letter-spacing: -.04em; }
+.qwerty-landing .landing-badge { padding: 4px 0; background: none; color: var(--ink); font-size: 11px; font-weight: 750; }
+.qwerty-landing .landing-order-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); font-size: 13px; }
+.qwerty-landing .landing-order-item p { margin-top: 5px; color: var(--ink); font-size: 11px; }
+.qwerty-landing .landing-order-item > strong { white-space: nowrap; }
+.qwerty-landing .landing-state-list { margin: 20px 0; display: grid; gap: 10px; font-size: 12px; }
+.qwerty-landing .landing-state-list > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 0; border-bottom: 1px dotted var(--line); }
+.qwerty-landing .landing-state-list dt { color: var(--ink); }
+.qwerty-landing .landing-state-list dd { margin: 0; text-align: right; font-weight: 700; }
+.qwerty-landing .landing-payment dd { color: var(--ink); }
+.qwerty-landing .landing-example-note { color: var(--ink); font-size: 12px; line-height: 1.6; }
+.qwerty-landing .landing-turn figcaption { padding: 12px 24px 18px; border-top: 1px dashed var(--line); font-size: 10px; color: var(--ink); }
+.qwerty-landing .landing-progress { display: flex; gap: 7px; margin-top: 10px; }
+.qwerty-landing .landing-progress a { flex: 1; min-width: 0; padding: 12px 0; border-top: 3px solid var(--line); font-size: 10px; color: var(--muted); }
+.qwerty-landing .landing-progress a span { display: block; margin-bottom: 5px; }
+.qwerty-landing .landing-progress a[aria-current] { border-color: var(--lime); color: var(--olive); font-weight: 800; }
+.qwerty-landing .landing-chapters { grid-column: 2; grid-row: 2; min-width: 0; scroll-margin-top: 36px; }
+.qwerty-landing .landing-story-intro { padding-bottom: 45px; }
+.qwerty-landing .landing-story-intro h2 { margin: 18px 0; }
+.qwerty-landing .landing-story-intro > p:last-child { color: var(--body-subtle); font-size: 16px; line-height: 1.7; }
+.qwerty-landing .landing-chapter { padding: 64px 0; border-top: 1px solid var(--line); scroll-margin-top: 45px; }
+.qwerty-landing .landing-chapter h2 { margin-top: 22px; }
+.qwerty-landing .landing-chapter > p:not(.landing-eyebrow) { margin-top: 22px; color: var(--body-subtle); font-size: 16px; line-height: 1.8; }
+.qwerty-landing .landing-chapter .landing-chapter-note { color: var(--olive); font-weight: 650; font-size: 13px; }
+.qwerty-landing .landing-chapter-example, .qwerty-landing .landing-mobile-progress { display: none; }
+.qwerty-landing .landing-purpose { margin-top: 55px; padding: 64px 40px; background: var(--forest); color: var(--cream); border-radius: 20px; }
+.qwerty-landing .landing-purpose .landing-eyebrow { color: var(--lime); }
+.qwerty-landing .landing-purpose-points strong { color: var(--lime); }
+.qwerty-landing .landing-purpose .landing-purpose-points span { color: var(--cream); }
+.qwerty-landing .landing-purpose h2 { margin: 22px 0; max-width: 650px; }
+.qwerty-landing .landing-purpose > p:last-of-type { max-width: 650px; color: var(--cream); line-height: 1.8; }
+.qwerty-landing .landing-purpose-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; margin-top: 40px; }
+.qwerty-landing .landing-faq { display: grid; grid-template-columns: 1fr 1.2fr; gap: 80px; padding: 90px 0; scroll-margin-top: 30px; }
+.qwerty-landing .landing-faq h2 { margin: 20px 0; }
+.qwerty-landing .landing-faq > div > p:last-child { color: var(--muted); font-size: 15px; line-height: 1.7; }
+.qwerty-landing .landing-faq details { border-bottom: 1px solid var(--line); }
+.qwerty-landing .landing-faq summary { padding: 22px 0; min-height: 44px; font-size: 15px; font-weight: 700; }
+.qwerty-landing .landing-faq details p { padding: 0 0 24px; color: var(--body-subtle); font-size: 14px; line-height: 1.8; }
+.qwerty-landing .landing-close { padding: 70px 32px; text-align: center; border-radius: 20px; background: var(--soft-lime); }
+.qwerty-landing .landing-close h2 { margin: 22px auto; max-width: 760px; }
+.qwerty-landing .landing-close > p:not(.landing-eyebrow) { color: var(--body-subtle); font-size: 15px; line-height: 1.8; }
+.qwerty-landing .landing-close .landing-button { margin-top: 28px; }
+.qwerty-landing .landing-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; min-height: 120px; padding: 30px 0; }
+.qwerty-landing .landing-footer > a:last-child { font-size: 13px; font-weight: 700; }
+/* A separate summary, not a shrunken full operations panel. */
+.qwerty-landing .landing-hero-demo { display: none; }
+.qwerty-landing .landing-hero-demo-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.qwerty-landing .landing-hero-demo-heading strong { font-size: 18px; letter-spacing: -.04em; }
+.qwerty-landing .landing-hero-demo-states { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0; padding: 12px 0; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); }
+.qwerty-landing .landing-hero-demo-states dt { color: var(--ink); font-size: 10px; }
+.qwerty-landing .landing-hero-demo-states dd { margin: 5px 0 0; font-size: 11px; font-weight: 700; }
+.qwerty-landing .landing-hero-demo figcaption { font-size: 10px; line-height: 1.5; }
+@media (max-height: 760px) {
+  .qwerty-landing .landing-preview-sticky { position: static; }
+}
+@media (max-width: 1000px) {
+  .qwerty-landing { padding: 0 24px; }
+  .qwerty-landing .landing-story { display: block; padding-top: 60px; }
+  .qwerty-landing .landing-hero { max-width: 640px; padding-bottom: 70px; }
+  .qwerty-landing .landing-preview { display: none; }
+  .qwerty-landing .landing-hero-demo { display: block; margin-top: 24px; padding: 20px; }
+  .qwerty-landing h1 { font-size: clamp(54px, 11vw, 76px); }
+  .qwerty-landing .landing-chapters { max-width: 720px; margin: 0 auto; }
+  .qwerty-landing .landing-mobile-progress { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 30px; }
+  .qwerty-landing .landing-mobile-progress a { padding: 12px 14px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; min-height: 44px; }
+  .qwerty-landing .landing-chapter-example { display: block; margin-top: 28px; }
+  .qwerty-landing .landing-chapter { padding: 40px 0; }
+  .qwerty-landing .landing-purpose { padding: 40px 24px; }
+  .qwerty-landing .landing-faq { gap: 40px; }
+}
+@media (max-width: 600px) {
+  .qwerty-landing { padding: 0 20px; }
+  .qwerty-landing .landing-header { min-height: 88px; gap: 12px; }
+  .qwerty-landing .landing-header nav { gap: 14px; }
+  .qwerty-landing .landing-header-link { font-size: 11px; }
+  .qwerty-landing .landing-button { padding: 12px 17px; }
+  .qwerty-landing .landing-brand { font-size: 25px; }
+  .qwerty-landing .landing-story { padding-top: 28px; }
+  .qwerty-landing .landing-hero { padding-bottom: 48px; }
+  .qwerty-landing h1 { margin-top: 18px; font-size: clamp(48px, 13.5vw, 65px); }
+  .qwerty-landing .landing-intro { margin-top: 18px; font-size: 20px; }
+  .qwerty-landing .landing-hero-copy { margin-top: 14px; font-size: 14px; line-height: 1.6; }
+  .qwerty-landing .landing-hero .landing-button { margin-top: 20px; }
+  .qwerty-landing .landing-hero .landing-quiet { margin-top: 12px; }
+  .qwerty-landing .landing-hero-demo { margin-top: 20px; padding: 16px; }
+  .qwerty-landing .landing-turn-body { padding: 22px 18px; }
+  .qwerty-landing .landing-turn-top { padding: 16px 18px; }
+  .qwerty-landing .landing-turn-top span { font-size: 10px; }
+  .qwerty-landing .landing-state-list > div { gap: 10px; font-size: 11px; }
+  .qwerty-landing .landing-purpose-points { grid-template-columns: 1fr; gap: 28px; }
+  .qwerty-landing .landing-faq { display: block; padding: 60px 0; }
+  .qwerty-landing .landing-faq-items { margin-top: 24px; }
+  .qwerty-landing .landing-close { padding: 48px 20px; }
+  .qwerty-landing .landing-footer { align-items: flex-start; }
+  .qwerty-landing .landing-footer p { width: 100%; order: 3; }
+}
+/* Opt in: the universal reduce reset cannot outrank component selectors. */
+@media (prefers-reduced-motion: no-preference) {
+  .qwerty-landing .landing-button { transition: transform 160ms ease, border-color 160ms ease; }
+  .qwerty-landing .landing-button:hover { transform: translateY(-2px); }
+  .qwerty-landing .landing-button:active { transform: translateY(0); }
+  .qwerty-landing .landing-turn-body { animation: landing-stage-enter 360ms ease-out; }
+  .qwerty-landing .landing-progress-fill { transition: transform 420ms ease; }
+  .qwerty-landing .landing-progress a { transition: border-color 180ms ease, color 180ms ease; }
+  .qwerty-landing .landing-hero-demo { animation: landing-stage-enter 360ms ease-out; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qwerty-landing *, .qwerty-landing *::before, .qwerty-landing *::after { animation: none; transition: none; scroll-behavior: auto; }
+}
