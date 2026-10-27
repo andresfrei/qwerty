@@ -23,9 +23,9 @@ const chapters = [
 export function IllustrativeTurn({ stage }: { stage: number }) {
   const id = useId();
   const chapter = chapters[stage];
-  return <figure className="landing-turn" aria-labelledby={id}>
+  return <figure className="landing-turn" aria-labelledby={id} data-stage={stage}>
     <div className="landing-turn-top"><strong>qwerty</strong><span>Un turno ilustrativo</span></div>
-    <div className="landing-turn-body">
+    <div className="landing-turn-body" key={stage}>
       <p className="landing-eyebrow">{String(stage + 1).padStart(2, "0")} / {chapter.label}</p>
       <div className="landing-order-heading"><h2 id={id}>Pedido #149</h2><span className="landing-badge">{stage === 0 ? "Registrado" : stage < 3 ? "Preparando" : "Entregado"}</span></div>
       <div className="landing-order-item"><div><strong>Pizza mitad y mitad</strong><p>Grande · Muzzarella / Napolitana</p></div><strong>$18.000</strong></div>
@@ -36,6 +36,19 @@ export function IllustrativeTurn({ stage }: { stage: number }) {
       </dl>
       <p className="landing-example-note">{chapter.note}</p>
     </div>
+    <figcaption>Vista conceptual · Estados e importes ilustrativos</figcaption>
+  </figure>;
+}
+
+function HeroDemo() {
+  const id = useId();
+  return <figure className="landing-hero-demo" aria-labelledby={id}>
+    <div className="landing-hero-demo-heading"><strong id={id}>Pedido #149</strong><span>Pizza mitad y mitad · $18.000</span></div>
+    <dl className="landing-hero-demo-states">
+      <div><dt>Preparación</dt><dd>Registrado</dd></div>
+      <div><dt>Cobro</dt><dd>Pendiente</dd></div>
+      <div><dt>Rendición</dt><dd>Sin asignar</dd></div>
+    </dl>
     <figcaption>Vista conceptual · Estados e importes ilustrativos</figcaption>
   </figure>;
 }
@@ -53,11 +66,16 @@ export function LandingStory() {
       // Percentage root margins use width, even vertically. Use height-based pixels.
       const top = Math.floor(window.innerHeight * 0.15);
       const bottom = Math.floor(window.innerHeight * 0.45);
-      observer = new IntersectionObserver(entries => {
-        const visible = entries.filter(entry => entry.isIntersecting)
-          .sort((a, b) => Math.abs(a.boundingClientRect.top - window.innerHeight * 0.3) - Math.abs(b.boundingClientRect.top - window.innerHeight * 0.3));
-        const next = Number((visible[0]?.target as HTMLElement | undefined)?.dataset.storyStep);
-        if (Number.isInteger(next) && next >= 0 && next < chapters.length) setActive(next);
+      observer = new IntersectionObserver(() => {
+        // A batch can contain only exits; other chapters may still occupy the band.
+        // Read current geometry on notifications, never stale entry rectangles.
+        const visible = Array.from(elements, element => ({
+          stage: Number(element.dataset.storyStep), rect: element.getBoundingClientRect(),
+        })).filter(({ stage, rect }) => Number.isInteger(stage) && stage >= 0 && stage < chapters.length
+          && rect.bottom > top && rect.top < window.innerHeight - bottom)
+          .sort((a, b) => Math.abs(a.rect.top - window.innerHeight * 0.3) - Math.abs(b.rect.top - window.innerHeight * 0.3));
+        const next = visible[0]?.stage;
+        if (next !== undefined) setActive(next);
       }, { rootMargin: `-${top}px 0px -${bottom}px 0px`, threshold: 0 });
       elements.forEach(element => { observer?.observe(element); });
     };
@@ -77,11 +95,15 @@ export function LandingStory() {
       <p className="landing-hero-copy">Del pedido al cierre del turno, esta es la operación que estamos construyendo para Qwerty.</p>
       <a className="landing-button landing-primary" href="#como-funciona">Ver el recorrido <span aria-hidden="true">↓</span></a>
       <p className="landing-quiet">Sitio en desarrollo · Vista conceptual</p>
+      <HeroDemo />
     </section>
 
     <aside className="landing-preview" aria-label="Vista ilustrativa del turno">
-      <div className="landing-preview-sticky">
+      <div className="landing-preview-sticky" data-active-stage={active}>
         <IllustrativeTurn stage={active} />
+        <div className="landing-progress-track" aria-hidden="true">
+          <div className="landing-progress-fill" style={{ transform: `scaleX(${(active + 1) / chapters.length})` }} />
+        </div>
         <nav className="landing-progress" aria-label="Etapas del recorrido">
           {chapters.map((chapter, index) => <a href={`#${chapter.id}`} key={chapter.id}
             aria-current={active === index ? "step" : undefined} onClick={() => setActive(index)}>
